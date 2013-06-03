@@ -1,11 +1,18 @@
 package uk.lmfm.converse;
 
+import android.location.Location;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
+import android.util.Log;
 import android.view.Menu;
 
+import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
+import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.MapsInitializer;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
@@ -17,11 +24,14 @@ public class ConverseMapActivity extends FragmentActivity {
 	 */
 	private GoogleMap mMap;
 
+	private static final LatLng LEANMEAN = new LatLng(51.543865, -0.149188);
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_converse_map);
 		setUpMapIfNeeded();
+		// setCameraToCurrentLocation();
 	}
 
 	@Override
@@ -77,10 +87,83 @@ public class ConverseMapActivity extends FragmentActivity {
 	 * is not null.
 	 */
 	private void setUpMap() {
-		mMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
-		mMap.addMarker(new MarkerOptions().position(new LatLng(0, 0)).title(
-				"Marker"));
+
+		mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+		mMap.addMarker(new MarkerOptions().position(LEANMEAN).title("lmfm"));
 		mMap.setMyLocationEnabled(true);
+		mMap.animateCamera(CameraUpdateFactory
+				.newCameraPosition(getPositionForLocation(LEANMEAN)));
+
+	}
+
+	private boolean setCameraToCurrentLocation() {
+		try {
+			if (mMap != null) {
+				mMap.animateCamera(CameraUpdateFactory
+						.newCameraPosition(getPositionForLocation(LEANMEAN)));
+
+				MapsInitializer.initialize(this);
+
+				return true;
+			}
+
+		} catch (GooglePlayServicesNotAvailableException gp) {
+			Log.e(getClass().getSimpleName(),
+					"Error initializing map features.", gp);
+		}
+
+		return false;
+	}
+
+	private CameraPosition getPositionForLocation(Location l) {
+		if (mMap == null) {
+			Log.e(getClass().getSimpleName(), "Can't get Camera Position.");
+			return null;
+		}
+
+		CameraPosition cameraPosition = new CameraPosition.Builder()
+				.target(getLatLngForLocation(l)) // Sets the
+													// center of
+													// the map
+													// to
+													// Mountain
+													// View
+				.zoom(17) // Sets the zoom
+
+				.build(); // Creates a CameraPosition from the builder
+
+		return cameraPosition;
+	}
+
+	private CameraPosition getPositionForLocation(LatLng l) {
+		if (mMap == null) {
+			Log.e(getClass().getSimpleName(), "Can't get Camera Position.");
+			return null;
+		}
+
+		CameraPosition cameraPosition = new CameraPosition.Builder().target(l) // Sets
+																				// the
+																				// center
+																				// of
+																				// the
+																				// map
+																				// to
+																				// Mountain
+																				// View
+				.zoom(17) // Sets the zoom
+
+				.build(); // Creates a CameraPosition from the builder
+
+		return cameraPosition;
+	}
+
+	private CameraPosition getPositionForCurrentLocation() {
+		return getPositionForLocation(mMap.getMyLocation());
+	}
+
+	private LatLng getLatLngForLocation(Location l) {
+		Log.v("getLatLngForLocation", l.toString());
+		return new LatLng(l.getLatitude(), l.getLongitude());
 	}
 
 }
