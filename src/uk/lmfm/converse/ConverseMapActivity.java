@@ -6,21 +6,23 @@ import android.location.Location;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.Menu;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesClient;
-import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.location.LocationClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.MapsInitializer;
+import com.google.android.gms.maps.GoogleMap.OnMapLongClickListener;
+import com.google.android.gms.maps.GoogleMap.OnMarkerClickListener;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 public class ConverseMapActivity extends FragmentActivity implements
@@ -136,9 +138,70 @@ public class ConverseMapActivity extends FragmentActivity implements
 		mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
 		mMap.addMarker(new MarkerOptions().position(LEANMEAN).title("lmfm"));
 		mMap.setMyLocationEnabled(true);
+		Toast t = Toast.makeText(this,
+				"Long press a location on the map to set your destination",
+				Toast.LENGTH_LONG);
+		t.setGravity(Gravity.TOP, 5, 40);
+		t.show();
+		addMapListeners();
 
 	}
 
+	/**
+	 * Adds the listeners required.
+	 */
+	private void addMapListeners() {
+		if (mMap != null) {
+			mMap.setOnMapLongClickListener(new OnMapLongClickListener() {
+
+				@Override
+				public void onMapLongClick(LatLng point) {
+					// Check that we have a map before we attempt to add a
+					// marker
+					if (ConverseMapActivity.this.mMap != null) {
+
+						// Remove existing markers first
+						mMap.clear();
+
+						// Add our new marker
+						mMap.addMarker(new MarkerOptions().position(point)
+								.title("Secret Destination!"));
+
+					}
+
+				}
+
+			});
+
+			mMap.setOnMarkerClickListener(new OnMarkerClickListener() {
+
+				@Override
+				public boolean onMarkerClick(Marker marker) {
+
+					if (ConverseMapActivity.this.mMap != null) {
+
+						// TODO navigate to next pulsing screen, comparing
+						// converse location with marker position
+						return false;
+
+					}
+
+					return false;
+
+				}
+			});
+		}
+
+	}
+
+	/**
+	 * Sets the Google map camera to center on the given location
+	 * 
+	 * @param l
+	 *            Location to center map camera on
+	 * @return true if animation completed and map object is not null, false
+	 *         otherwise
+	 */
 	private boolean setCameraToLocation(Location l) {
 
 		if (mMap != null) {
@@ -151,6 +214,14 @@ public class ConverseMapActivity extends FragmentActivity implements
 		return false;
 	}
 
+	/**
+	 * Create a new CameraPosition object given a Location object
+	 * 
+	 * @param l
+	 *            location to set camera position to
+	 * @return CameraPosition, representing the location, and zoom we wish to
+	 *         display
+	 */
 	private CameraPosition getPositionForLocation(Location l) {
 		if (mMap == null) {
 			Log.e(getClass().getSimpleName(), "Can't get Camera Position.");
