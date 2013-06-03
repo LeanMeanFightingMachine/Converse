@@ -1,13 +1,20 @@
 package uk.lmfm.converse;
 
+import uk.lmfm.converse.util.LocationUtils;
+import android.content.IntentSender;
 import android.location.Location;
-import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.Menu;
+import android.widget.Toast;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesClient;
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
+import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.google.android.gms.location.LocationClient;
+import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapsInitializer;
@@ -16,7 +23,9 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
-public class ConverseMapActivity extends FragmentActivity {
+public class ConverseMapActivity extends FragmentActivity implements
+		LocationListener, GooglePlayServicesClient.ConnectionCallbacks,
+		GooglePlayServicesClient.OnConnectionFailedListener {
 
 	/**
 	 * Note that this may be null if the Google Play services APK is not
@@ -24,14 +33,40 @@ public class ConverseMapActivity extends FragmentActivity {
 	 */
 	private GoogleMap mMap;
 
+	// Stores the current instantiation of the location client in this object
+	private LocationClient mLocationClient;
+
+	// Current location
+	private Location mCurrentLocation;
+
 	private static final LatLng LEANMEAN = new LatLng(51.543865, -0.149188);
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		// Check that we have Google Play services
+		checkForPlayServices();
+
+		/*
+		 * Create a new location client, using the enclosing class to handle
+		 * callbacks.
+		 */
+		mLocationClient = new LocationClient(this, this, this);
+
 		setContentView(R.layout.activity_converse_map);
 		setUpMapIfNeeded();
-		// setCameraToCurrentLocation();
+
+	}
+
+	/*
+	 * Called when the Activity becomes visible.
+	 */
+	@Override
+	protected void onStart() {
+		super.onStart();
+		// Connect the client.
+		mLocationClient.connect();
 	}
 
 	@Override
@@ -45,6 +80,16 @@ public class ConverseMapActivity extends FragmentActivity {
 	protected void onResume() {
 		super.onResume();
 		setUpMapIfNeeded();
+	}
+
+	/*
+	 * Called when the Activity is no longer visible.
+	 */
+	@Override
+	protected void onStop() {
+		// Disconnecting the client invalidates it.
+		mLocationClient.disconnect();
+		super.onStop();
 	}
 
 	/**
@@ -91,25 +136,16 @@ public class ConverseMapActivity extends FragmentActivity {
 		mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
 		mMap.addMarker(new MarkerOptions().position(LEANMEAN).title("lmfm"));
 		mMap.setMyLocationEnabled(true);
-		mMap.animateCamera(CameraUpdateFactory
-				.newCameraPosition(getPositionForLocation(LEANMEAN)));
 
 	}
 
-	private boolean setCameraToCurrentLocation() {
-		try {
-			if (mMap != null) {
-				mMap.animateCamera(CameraUpdateFactory
-						.newCameraPosition(getPositionForLocation(LEANMEAN)));
+	private boolean setCameraToLocation(Location l) {
 
-				MapsInitializer.initialize(this);
+		if (mMap != null) {
+			mMap.animateCamera(CameraUpdateFactory
+					.newCameraPosition(getPositionForLocation(l)));
 
-				return true;
-			}
-
-		} catch (GooglePlayServicesNotAvailableException gp) {
-			Log.e(getClass().getSimpleName(),
-					"Error initializing map features.", gp);
+			return true;
 		}
 
 		return false;
@@ -157,13 +193,84 @@ public class ConverseMapActivity extends FragmentActivity {
 		return cameraPosition;
 	}
 
-	private CameraPosition getPositionForCurrentLocation() {
-		return getPositionForLocation(mMap.getMyLocation());
-	}
-
 	private LatLng getLatLngForLocation(Location l) {
 		Log.v("getLatLngForLocation", l.toString());
 		return new LatLng(l.getLatitude(), l.getLongitude());
+	}
+
+	/*
+	 * Called by Location Services if the attempt to Location Services fails.
+	 */
+	@Override
+	public void onConnectionFailed(ConnectionResult connectionResult) {
+		/*
+		 * Google Play services can resolve some errors it detects. If the error
+		 * has a resolution, try sending an Intent to start a Google Play
+		 * services activity that can resolve error.
+		 */
+		if (connectionResult.hasResolution()) {
+			try {
+				// Start an Activity that tries to resolve the error
+				connectionResult.startResolutionForResult(this,
+						LocationUtils.CONNECTION_FAILURE_RESOLUTION_REQUEST);
+				/*
+				 * Thrown if Google Play services canceled the original
+				 * PendingIntent
+				 */
+			} catch (IntentSender.SendIntentException e) {
+				// Log the error
+				e.printStackTrace();
+			}
+		} else {
+			/*
+			 * If no resolution is available, display a dialog to the user with
+			 * the error.
+			 */
+			GooglePlayServicesUtil.getErrorDialog(
+					connectionResult.getErrorCode(), this, 0).show();
+		}
+	}
+
+	/*
+	 * Called by Location Services when the request to connect the client
+	 * finishes successfully. At this point, you can request the current
+	 * location or start periodic updates
+	 */
+	@Override
+	public void onConnected(Bundle connectionHint) {
+		// Display the connection status
+		Toast.makeText(this, "Connected to Location Services",
+				Toast.LENGTH_SHORT).show();
+		mCurrentLocation = mLocationClient.getLastLocation();
+		setCameraToLocation(mCurrentLocation);
+
+	}
+
+	/*
+	 * Called by Location Services if the connection to the location client
+	 * drops because of an error.
+	 */
+	@Override
+	public void onDisconnected() {
+		// Display the connection status
+		Toast.makeText(this, "Disconnected. Please re-connect.",
+				Toast.LENGTH_SHORT).show();
+	}
+
+	@Override
+	public void onLocationChanged(Location location) {
+		// TODO Auto-generated method stub
+
+	}
+
+	/* Classes and methods for checking location services */
+
+	private void checkForPlayServices() {
+		int errorCode = GooglePlayServicesUtil
+				.isGooglePlayServicesAvailable(this);
+		if (errorCode != ConnectionResult.SUCCESS) {
+			GooglePlayServicesUtil.getErrorDialog(errorCode, this, 0).show();
+		}
 	}
 
 }
