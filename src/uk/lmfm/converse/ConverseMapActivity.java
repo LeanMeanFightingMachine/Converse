@@ -1,6 +1,7 @@
 package uk.lmfm.converse;
 
 import uk.lmfm.converse.util.LocationUtils;
+import android.content.Intent;
 import android.content.IntentSender;
 import android.location.Location;
 import android.os.Bundle;
@@ -182,6 +183,11 @@ public class ConverseMapActivity extends FragmentActivity implements
 
 						// TODO navigate to next pulsing screen, comparing
 						// converse location with marker position
+
+						Intent intent = new Intent(ConverseMapActivity.this,
+								NavigationAnimatorActivity.class);
+						startActivity(intent);
+
 						return false;
 
 					}
@@ -248,15 +254,7 @@ public class ConverseMapActivity extends FragmentActivity implements
 			return null;
 		}
 
-		CameraPosition cameraPosition = new CameraPosition.Builder().target(l) // Sets
-																				// the
-																				// center
-																				// of
-																				// the
-																				// map
-																				// to
-																				// Mountain
-																				// View
+		CameraPosition cameraPosition = new CameraPosition.Builder().target(l)
 				.zoom(17) // Sets the zoom
 
 				.build(); // Creates a CameraPosition from the builder

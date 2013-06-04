@@ -41,6 +41,15 @@
         <meta-data
             android:name="com.google.android.maps.v2.API_KEY"
             android:value="AIzaSyBejuSiSXhl36aETuDbl3Q3ipbytRxJ7Iw" />
+
+        <activity
+            android:name="uk.lmfm.converse.NavigationAnimatorActivity"
+            android:label="@string/title_activity_navigation_animator"
+            android:parentActivityName="uk.lmfm.converse.ConverseMapActivity" >
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="uk.lmfm.converse.ConverseMapActivity" />
+        </activity>
     </application>
 
 </manifest>
