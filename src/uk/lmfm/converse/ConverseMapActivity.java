@@ -1,9 +1,11 @@
 package uk.lmfm.converse;
 
 import uk.lmfm.converse.util.LocationUtils;
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.location.Location;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
@@ -21,6 +23,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.GoogleMap.OnMapLongClickListener;
 import com.google.android.gms.maps.GoogleMap.OnMarkerClickListener;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
@@ -44,12 +47,19 @@ public class ConverseMapActivity extends FragmentActivity implements
 
 	private static final LatLng LEANMEAN = new LatLng(51.543865, -0.149188);
 
+	@SuppressLint("NewApi")
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
 		// Check that we have Google Play services
 		checkForPlayServices();
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+			// Show the Up button in the action bar.
+			getActionBar().setDisplayHomeAsUpEnabled(true);
+			// getActionBar().setTitle(stn.getName());
+		}
 
 		/*
 		 * Create a new location client, using the enclosing class to handle
@@ -137,7 +147,11 @@ public class ConverseMapActivity extends FragmentActivity implements
 	private void setUpMap() {
 
 		mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
-		mMap.addMarker(new MarkerOptions().position(LEANMEAN).title("lmfm"));
+		mMap.addMarker(new MarkerOptions()
+				.position(LEANMEAN)
+				.title("lmfm")
+				.icon(BitmapDescriptorFactory
+						.fromResource(R.drawable.mapmarker)));
 		mMap.setMyLocationEnabled(true);
 		Toast t = Toast.makeText(this,
 				"Long press a location on the map to set your destination",
@@ -165,8 +179,11 @@ public class ConverseMapActivity extends FragmentActivity implements
 						mMap.clear();
 
 						// Add our new marker
-						mMap.addMarker(new MarkerOptions().position(point)
-								.title("Secret Destination!"));
+						mMap.addMarker(new MarkerOptions()
+								.position(point)
+								.title("Secret Destination!")
+								.icon(BitmapDescriptorFactory
+										.fromResource(R.drawable.mapmarker)));
 
 					}
 
@@ -311,7 +328,10 @@ public class ConverseMapActivity extends FragmentActivity implements
 		Toast.makeText(this, "Connected to Location Services",
 				Toast.LENGTH_SHORT).show();
 		mCurrentLocation = mLocationClient.getLastLocation();
-		setCameraToLocation(mCurrentLocation);
+
+		// We very rarely can get a null location.
+		if (mCurrentLocation != null)
+			setCameraToLocation(mCurrentLocation);
 
 	}
 
@@ -329,6 +349,11 @@ public class ConverseMapActivity extends FragmentActivity implements
 	@Override
 	public void onLocationChanged(Location location) {
 		// TODO Auto-generated method stub
+		Log.d(getClass().getSimpleName(), String.format(
+				"Location changed from %f to %f", mCurrentLocation, location));
+		if (location != null)
+			setCameraToLocation(location);
+		mCurrentLocation = location;
 
 	}
 

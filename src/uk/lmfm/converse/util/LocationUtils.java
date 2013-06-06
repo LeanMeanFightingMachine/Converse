@@ -36,4 +36,6 @@ public final class LocationUtils {
 	// A fast ceiling of update intervals, used when the app is visible
 	public static final long FAST_INTERVAL_CEILING_IN_MILLISECONDS = MILLISECONDS_PER_SECOND
 			* FAST_CEILING_IN_SECONDS;
+	
+	
 }
