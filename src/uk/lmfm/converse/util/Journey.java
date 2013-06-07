@@ -17,6 +17,7 @@ public class Journey {
 	private static final long GEOFENCE_EXPIRATION_TIME = GEOFENCE_EXPIRATION_IN_HOURS
 			* SECONDS_PER_HOUR * MILLISECONDS_PER_SECOND;
 
+	// Radius in meters
 	private static final float RADIUS = 100;
 
 	private List<Step> steps;

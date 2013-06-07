@@ -1,22 +1,26 @@
 package uk.lmfm.converse;
 
+import uk.lmfm.converse.ConverseNavigationService.LocalBinder;
 import uk.lmfm.converse.util.DirectionsWrapper;
 import uk.lmfm.converse.util.IOUtils;
 import uk.lmfm.converse.util.Journey;
-import uk.lmfm.converse.util.LocationUtils;
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentSender;
+import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Vibrator;
+import android.os.IBinder;
 import android.support.v4.app.NavUtils;
 import android.util.Log;
 import android.view.Menu;
@@ -30,11 +34,10 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 
 import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesClient;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.location.LocationClient;
-import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.maps.model.LatLng;
 
 /**
  * This class is used to render annd display animation of navigation while the
@@ -46,24 +49,11 @@ import com.google.android.gms.location.LocationRequest;
  * @author niallgunter
  * 
  */
-public class NavigationAnimatorActivity extends Activity implements
-		LocationListener, GooglePlayServicesClient.ConnectionCallbacks,
-		GooglePlayServicesClient.OnConnectionFailedListener {
-
-	// Milliseconds per second
-	private static final int MILLISECONDS_PER_SECOND = 1000;
-	// Update frequency in seconds
-	public static final int UPDATE_INTERVAL_IN_SECONDS = 10;
-	// Update frequency in milliseconds
-	private static final long UPDATE_INTERVAL = MILLISECONDS_PER_SECOND
-			* UPDATE_INTERVAL_IN_SECONDS;
-	// The fastest update frequency, in seconds
-	private static final int FASTEST_INTERVAL_IN_SECONDS = 5;
-	// A fast frequency ceiling in milliseconds
-	private static final long FASTEST_INTERVAL = MILLISECONDS_PER_SECOND
-			* FASTEST_INTERVAL_IN_SECONDS;
+public class NavigationAnimatorActivity extends Activity {
 
 	private static final int CACHE_SIZE = 20; // Number of locations to Cache
+
+	public static final String INTENT_ACTION = "uk.lmfm.converse.LOCATION_UPDATE";
 
 	private BluetoothAdapter mBluetooth; // Bluetooth
 	private String leftShoe; // MAC Address of left bluetooth shoe
@@ -78,8 +68,38 @@ public class NavigationAnimatorActivity extends Activity implements
 	LocationClient mLocationClient;
 	LocationRequest mLocationRequest;
 	Location mCurrentLocation;
+	Location mDestination;
+
+	private ServiceConnection mConnection = new ServiceConnection() {
+
+		@Override
+		public void onServiceConnected(ComponentName className, IBinder service) {
+			// We've bound to LocalService, cast the IBinder and get
+			// LocalService instance
+			LocalBinder binder = (LocalBinder) service;
+			mService = binder.getService();
+			mBound = true;
+		}
+
+		@Override
+		public void onServiceDisconnected(ComponentName arg0) {
+			mBound = false;
+		}
+	};
+
 	protected Animation enlarge, shrink;
 	private boolean reachedDest;
+	private ReceiveLocationUpdate rlu = null;
+	private boolean isReceiverRegistered = false;
+
+	ConverseNavigationService mService;
+	boolean mBound = false;
+
+	/*
+	 * Store the PendingIntent used to send activity recognition events back to
+	 * the app
+	 */
+	private PendingIntent mNavigationPendingIntent;
 
 	static class LeanMeanLocation {
 		final double lat = 51.5438122;
@@ -91,28 +111,68 @@ public class NavigationAnimatorActivity extends Activity implements
 		final double lon = -0.14293520000000562;
 	}
 
+	class ReceiveLocationUpdate extends BroadcastReceiver {
+
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			// TODO Auto-generated method stub
+
+			Log.v(getClass().getName(), "DERP");
+
+			String action = intent.getAction();
+
+			// send message to activity
+
+			Bundle b = null;
+
+			// Check we have a bundle
+			if ((b = intent.getExtras()) != null) {
+				// Check if we have location data
+				if (action.equalsIgnoreCase(INTENT_ACTION)) {
+
+					Object o = b.get(LocationClient.KEY_LOCATION_CHANGED);
+					Log.v(getClass().getName(), o.toString());
+					if (o != null && o instanceof Location) {
+						mCurrentLocation = (Location) o;
+						checkIfAtLocation(mCurrentLocation);
+					}
+				}
+
+			}
+
+		}
+
+	}
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		cachedLocations = new Location[CACHE_SIZE];
 
 		// Check that we have Google Play services
 		checkForPlayServices();
 
-		/*
-		 * Create a new location client, using the enclosing class to handle
-		 * callbacks.
-		 */
-		mLocationClient = new LocationClient(this, this, this);
+		cachedLocations = new Location[CACHE_SIZE];
+		mDestination = new Location("DESTINATION");
 
-		// Create the LocationRequest object
-		mLocationRequest = LocationRequest.create();
-		// Use high accuracy
-		mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-		// Set the update interval to 10 seconds
-		mLocationRequest.setInterval(UPDATE_INTERVAL);
-		// Set the fastest update interval to 5 second
-		mLocationRequest.setFastestInterval(FASTEST_INTERVAL);
+		Intent caller = null;
+		if ((caller = getIntent()) != null) {
+
+			Bundle b = null;
+
+			if ((b = caller.getExtras()) != null) {
+				LatLng ll = (LatLng) b.get(ConverseMapActivity.INTENT_KEY);
+
+				if (ll != null) {
+					mDestination.setLatitude(ll.latitude);
+					mDestination.setLongitude(ll.longitude);
+					Log.v(getClass().getName(), mDestination.toString());
+				}
+
+			}
+		}
+
+		// Create new BroadcastReceiver
+		rlu = new ReceiveLocationUpdate();
 
 		reachedDest = false;
 		setContentView(R.layout.activity_navigation_animator);
@@ -128,6 +188,7 @@ public class NavigationAnimatorActivity extends Activity implements
 			}
 		});
 		loadImage();
+		// getJourney(mCurrentLocation);
 
 	}
 
@@ -138,11 +199,21 @@ public class NavigationAnimatorActivity extends Activity implements
 	protected void onStart() {
 		super.onStart();
 		// Start our connection
-		mLocationClient.connect();
+		Intent intent = new Intent(this, ConverseNavigationService.class);
+		bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+
 	}
 
 	private void checkIfAtLocation(Location currLocation) {
 		// TODO: check if we're withing range of our destination
+		String s = String
+				.format("Distance from current location {%f,%f} to {%f,%f} is %f meters.",
+						mCurrentLocation.getLatitude(),
+						mCurrentLocation.getLongitude(),
+						mDestination.getLatitude(),
+						mDestination.getLongitude(),
+						mCurrentLocation.distanceTo(mDestination));
+		Log.i(getClass().getName(), s);
 	}
 
 	private void loadImage() {
@@ -281,71 +352,51 @@ public class NavigationAnimatorActivity extends Activity implements
 	public void onResume() {
 		super.onResume(); // Always call the superclass method first
 
+		if (!isReceiverRegistered) {
+
+			// If not registered, register now
+			IntentFilter ifilter = new IntentFilter();
+			ifilter.addAction(INTENT_ACTION);
+
+			registerReceiver(rlu, ifilter);
+			isReceiverRegistered = true;
+			Log.i(getClass().getSimpleName(), "Registering BroadcastReciever");
+		}
+
 		setUpAnimations();
 	}
 
 	@Override
 	protected void onDestroy() {
-
-		// Here we'll kill everything pertaining to location
-
-		// If the client is connected
-		if (mLocationClient.isConnected()) {
-			/*
-			 * Remove location updates for a listener. The current Activity is
-			 * the listener, so the argument is "this".
-			 */
-			mLocationClient.removeLocationUpdates(this);
-		}
-		/*
-		 * After disconnect() is called, the client is considered "dead".
-		 */
-		mLocationClient.disconnect();
-
 		super.onDestroy();
+
+		if (isReceiverRegistered) {
+
+			// If registered, unregister now
+			unregisterReceiver(rlu);
+			isReceiverRegistered = false;
+			Log.i(getClass().getSimpleName(), "Unregistering BroadcastReciever");
+		}
+
+		// Unbind from the service
+		if (mBound) {
+			unbindService(mConnection);
+			mBound = false;
+		}
+
 	}
 
 	@Override
-	public void onConnectionFailed(ConnectionResult result) {
-
-		Log.d(getClass().getSimpleName(),
-				"Failed to connect to Location Services.");
-
-		/*
-		 * Google Play services can resolve some errors it detects. If the error
-		 * has a resolution, try sending an Intent to start a Google Play
-		 * services activity that can resolve error.
-		 */
-		if (result.hasResolution()) {
-			try {
-				// Start an Activity that tries to resolve the error
-				result.startResolutionForResult(this,
-						LocationUtils.CONNECTION_FAILURE_RESOLUTION_REQUEST);
-				/*
-				 * Thrown if Google Play services canceled the original
-				 * PendingIntent
-				 */
-			} catch (IntentSender.SendIntentException e) {
-				// Log the error
-				e.printStackTrace();
-			}
-		} else {
-			/*
-			 * If no resolution is available, display a dialog to the user with
-			 * the error.
-			 */
-			GooglePlayServicesUtil.getErrorDialog(result.getErrorCode(), this,
-					0).show();
+	protected void onStop() {
+		super.onStop();
+		// Unbind from the service
+		if (mBound) {
+			unbindService(mConnection);
+			mBound = false;
 		}
 	}
 
-	@Override
-	public void onConnected(Bundle connectionHint) {
-		// TODO Auto-generated method stub
-		Log.d(getClass().getSimpleName(), "Connected to Location services");
-
-		mCurrentLocation = mLocationClient.getLastLocation();
-
+	private void getJourney(Location l) {
 		// Check if we have a data connection
 		if (IOUtils.isOnline(this)) {
 
@@ -363,41 +414,6 @@ public class NavigationAnimatorActivity extends Activity implements
 			}).start();
 
 		}
-
-		mLocationClient.requestLocationUpdates(mLocationRequest, this);
-		Log.d(getClass().getSimpleName(), "Location updates requested.");
-
-	}
-
-	@Override
-	public void onDisconnected() {
-		Log.d(getClass().getSimpleName(), "Disconnected from Location services");
-
-	}
-
-	@Override
-	public void onLocationChanged(Location location) {
-		Log.d(getClass().getSimpleName(), String.format(
-				"Location changed from %f,%f to %f,%f",
-				mCurrentLocation.getLatitude(),
-				mCurrentLocation.getLongitude(), location.getLatitude(),
-				location.getLongitude()));
-
-		if (mCurrentLocation.distanceTo(location) < 10) {
-			reachedDest = true;
-			/*
-			 * Intent intent = new Intent(NavigationAnimatorActivity.this,
-			 * ConverseMapActivity.class); startActivity(intent);
-			 */
-			Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-			// Vibrate for 500 milliseconds
-
-			v.vibrate(new long[] { 0, 250, 125 }, 1);
-		}
-
-		mCurrentLocation = location;
-		cachedLocations[cacheIndex] = location;
-		cacheIndex = (cacheIndex + 1) % CACHE_SIZE;
 	}
 
 	/* Classes and methods for checking location services */
@@ -409,5 +425,7 @@ public class NavigationAnimatorActivity extends Activity implements
 			GooglePlayServicesUtil.getErrorDialog(errorCode, this, 0).show();
 		}
 	}
+
+	/** Defines callbacks for service binding, passed to bindService() */
 
 }

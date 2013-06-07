@@ -38,6 +38,7 @@ public class ConverseMapActivity extends FragmentActivity implements
 	 * available.
 	 */
 	private GoogleMap mMap;
+	public static final String INTENT_KEY = "uk.lmfm.converse.DESTINATION";
 
 	// Stores the current instantiation of the location client in this object
 	private LocationClient mLocationClient;
@@ -201,8 +202,16 @@ public class ConverseMapActivity extends FragmentActivity implements
 						// TODO navigate to next pulsing screen, comparing
 						// converse location with marker position
 
+						LatLng ll = marker.getPosition();
+
+						if (ll != null)
+							Log.v("Testing LatLng", "Heeeeello");
+
 						Intent intent = new Intent(ConverseMapActivity.this,
 								NavigationAnimatorActivity.class);
+
+						intent.putExtra(INTENT_KEY, ll);
+
 						startActivity(intent);
 
 						return false;

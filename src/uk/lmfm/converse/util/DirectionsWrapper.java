@@ -162,7 +162,7 @@ public class DirectionsWrapper {
 			}
 
 			result = sb.toString();
-			Log.v(getClass().getSimpleName(), "JSON Response:\n" + result);
+			// Log.v(getClass().getSimpleName(), "JSON Response:\n" + result);
 		} catch (IOException ioe) {
 			Log.e(getClass().getSimpleName(), "IOException", ioe);
 
