@@ -1,12 +1,10 @@
 package uk.lmfm.converse;
 
 import uk.lmfm.converse.ConverseNavigationService.LocalBinder;
-import uk.lmfm.converse.util.DirectionsWrapper;
-import uk.lmfm.converse.util.IOUtils;
+import uk.lmfm.converse.util.ConverseVibrator;
 import uk.lmfm.converse.util.Journey;
 import android.annotation.TargetApi;
 import android.app.Activity;
-import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -14,9 +12,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.content.res.Resources;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.graphics.drawable.AnimationDrawable;
 import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
@@ -25,22 +21,14 @@ import android.support.v4.app.NavUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.view.View.OnClickListener;
-import android.view.animation.Animation;
-import android.view.animation.Animation.AnimationListener;
-import android.view.animation.AnimationUtils;
-import android.widget.ImageButton;
-import android.widget.ImageView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.location.LocationClient;
-import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.maps.model.LatLng;
 
 /**
- * This class is used to render annd display animation of navigation while the
+ * This class is used to render and display animation of navigation while the
  * user is travelling.
  * 
  * Guides consulted:
@@ -51,7 +39,8 @@ import com.google.android.gms.maps.model.LatLng;
  */
 public class NavigationAnimatorActivity extends Activity {
 
-	private static final int CACHE_SIZE = 20; // Number of locations to Cache
+	private static final float RADIUS = 10;
+	AnimationDrawable ripple;
 
 	public static final String INTENT_ACTION = "uk.lmfm.converse.LOCATION_UPDATE";
 
@@ -59,17 +48,25 @@ public class NavigationAnimatorActivity extends Activity {
 	private String leftShoe; // MAC Address of left bluetooth shoe
 	private String rightShoe; // MAC Address of right bluetooth shoe
 
-	private Location[] cachedLocations; // Store locations so we can work
-										// out bearings
-	private int cacheIndex = 0; // Current index to store location data in
+	// Milliseconds per second
+	private static final int MILLISECONDS_PER_SECOND = 1000;
+	// How we should go for before checking that the user is heading in the
+	// right direction
+	private static final int TIME_OUT = MILLISECONDS_PER_SECOND * 60;
 
-	protected ImageView converse;
-	protected ImageButton mButton;
-	LocationClient mLocationClient;
-	LocationRequest mLocationRequest;
 	Location mCurrentLocation;
 	Location mDestination;
+	Location mOldCurrentLocation = null;
+	long timestamp = -1;
 
+	// Object containing our journey details
+	private Journey journey;
+	private boolean mHasJourneyData = false;
+
+	/**
+	 * Callback for LocalService. We use this to start the location updates from
+	 * the service.
+	 */
 	private ServiceConnection mConnection = new ServiceConnection() {
 
 		@Override
@@ -78,46 +75,42 @@ public class NavigationAnimatorActivity extends Activity {
 			// LocalService instance
 			LocalBinder binder = (LocalBinder) service;
 			mService = binder.getService();
+			mCurrentLocation = mService.getMostRecentLocation();
+
+			mService.startLocationUpdates();
 			mBound = true;
+			Log.d(getClass().getSimpleName(), "Bound to Service");
 		}
 
 		@Override
 		public void onServiceDisconnected(ComponentName arg0) {
 			mBound = false;
+			Log.d(getClass().getSimpleName(), "Disconnected from Service");
 		}
 	};
 
-	protected Animation enlarge, shrink;
-	private boolean reachedDest;
+	private boolean reachedDest = false;
 	private ReceiveLocationUpdate rlu = null;
 	private boolean isReceiverRegistered = false;
 
 	ConverseNavigationService mService;
 	boolean mBound = false;
 
-	/*
-	 * Store the PendingIntent used to send activity recognition events back to
-	 * the app
+	/**
+	 * Inner class used to handle broadcasts that have been sent by local
+	 * services.
+	 * 
+	 * @author Niall
+	 * 
 	 */
-	private PendingIntent mNavigationPendingIntent;
-
-	static class LeanMeanLocation {
-		final double lat = 51.5438122;
-		final double lon = -0.1499303;
-	}
-
-	static class CamdenMarket {
-		final double lat = 51.540088999999995;
-		final double lon = -0.14293520000000562;
-	}
-
 	class ReceiveLocationUpdate extends BroadcastReceiver {
 
+		/**
+		 * Callback for handling receipt of new data
+		 */
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			// TODO Auto-generated method stub
-
-			Log.v(getClass().getName(), "DERP");
 
 			String action = intent.getAction();
 
@@ -131,10 +124,44 @@ public class NavigationAnimatorActivity extends Activity {
 				if (action.equalsIgnoreCase(INTENT_ACTION)) {
 
 					Object o = b.get(LocationClient.KEY_LOCATION_CHANGED);
-					Log.v(getClass().getName(), o.toString());
+					Log.v(getClass().getName(), "Received location update");
 					if (o != null && o instanceof Location) {
+
+						// Store the new location
 						mCurrentLocation = (Location) o;
-						checkIfAtLocation(mCurrentLocation);
+
+						// Update old current location periodically
+						if ((System.currentTimeMillis() - timestamp) >= TIME_OUT) {
+							mOldCurrentLocation = mCurrentLocation;
+							timestamp = System.currentTimeMillis();
+						}
+
+						if (mHasJourneyData) {
+							checkIfAtLocation(mCurrentLocation);
+						} else {
+
+							// Start a thread to download Journey info
+							new Thread(new JourneyDownloader(mCurrentLocation,
+									mDestination,
+									NavigationAnimatorActivity.this) {
+
+								@Override
+								public void handleJourney(Journey j) {
+									if (j != null) {
+										journey = j;
+										mHasJourneyData = true;
+										checkIfAtLocation(mCurrentLocation);
+									} else {
+										Log.e(getClass().getSimpleName(),
+												"Could not retrieve directions for journey");
+										// TODO: popup indicating invalid journey, try again
+									}
+
+								}
+							}).start();
+
+						}
+
 					}
 				}
 
@@ -150,8 +177,6 @@ public class NavigationAnimatorActivity extends Activity {
 
 		// Check that we have Google Play services
 		checkForPlayServices();
-
-		cachedLocations = new Location[CACHE_SIZE];
 		mDestination = new Location("DESTINATION");
 
 		Intent caller = null;
@@ -176,18 +201,14 @@ public class NavigationAnimatorActivity extends Activity {
 
 		reachedDest = false;
 		setContentView(R.layout.activity_navigation_animator);
-		mButton = (ImageButton) findViewById(R.id.imageButton1);
-		mButton.setOnClickListener(new OnClickListener() {
 
-			@Override
-			public void onClick(View v) {
-				// Navigate back to ConverseMapActivity for now
-				Intent intent = new Intent(NavigationAnimatorActivity.this,
-						ConverseMapActivity.class);
-				startActivity(intent);
-			}
-		});
-		loadImage();
+		/*
+		 * ImageView rocketImage = (ImageView) findViewById(R.id.RippleImg);
+		 * 
+		 * rocketImage.setBackgroundResource(R.drawable.ripple_anim); ripple =
+		 * (AnimationDrawable) rocketImage.getBackground();
+		 */
+
 		// getJourney(mCurrentLocation);
 
 	}
@@ -201,117 +222,65 @@ public class NavigationAnimatorActivity extends Activity {
 		// Start our connection
 		Intent intent = new Intent(this, ConverseNavigationService.class);
 		bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+		// ripple.start();
 
 	}
 
+	/**
+	 * Checks if the users current location is at a waypoint in navigation (i.e
+	 * we should be telling the user to turn right, turn left etc.)
+	 * 
+	 * @param currLocation
+	 */
 	private void checkIfAtLocation(Location currLocation) {
-		// TODO: check if we're withing range of our destination
-		String s = String
-				.format("Distance from current location {%f,%f} to {%f,%f} is %f meters.",
-						mCurrentLocation.getLatitude(),
-						mCurrentLocation.getLongitude(),
-						mDestination.getLatitude(),
-						mDestination.getLongitude(),
-						mCurrentLocation.distanceTo(mDestination));
-		Log.i(getClass().getName(), s);
-	}
 
-	private void loadImage() {
-		converse = (ImageView) findViewById(R.id.logodisplay);
-		converse.setImageBitmap(decodeSampledBitmapFromResource(getResources(),
-				R.drawable.logo, 325, 200));
-		// converse.startAnimation(enlarge);
-	}
+		// Sanity check to make sure we have obtained directions from google
+		if (mHasJourneyData) {
+			// Get the next journey step
+			Journey.Step s = journey.getFirstStep();
+			Log.v(getClass().getSimpleName(), String.format(
+					"Checking if current location is near journey step: %s", s));
+			Location l = s.asLocation();
+			float dist = 0;
 
-	public static int calculateInSampleSize(BitmapFactory.Options options,
-			int reqWidth, int reqHeight) {
-		// Raw height and width of image
-		final int height = options.outHeight;
-		final int width = options.outWidth;
-		int inSampleSize = 1;
+			// Check if we're within range of the desired destination
+			if (mCurrentLocation.distanceTo(mDestination) <= RADIUS) {
+				reachedDest = true;
+				cleanUp();
+				// TODO: navigate to finished activity
+			}
 
-		if (height > reqHeight || width > reqWidth) {
+			// Check if we're within range of a waypoint, notifying user if we
+			// are, and giving them the next direction to take
+			if ((dist = mCurrentLocation.distanceTo(l)) <= RADIUS) {
 
-			// Calculate ratios of height and width to requested height and
-			// width
-			final int heightRatio = Math.round((float) height
-					/ (float) reqHeight);
-			final int widthRatio = Math.round((float) width / (float) reqWidth);
+				// Vibrate for 500 milliseconds
 
-			// Choose the smallest ratio as inSampleSize value, this will
-			// guarantee
-			// a final image with both dimensions larger than or equal to the
-			// requested height and width.
-			inSampleSize = heightRatio < widthRatio ? heightRatio : widthRatio;
+				ConverseVibrator.vibrateForDirection(s.getInstruction(), this);
+				journey.removeFirstStep();
+				Log.v(getClass().getSimpleName(), String.format(
+						"Removed current step, next step is: %s", journey
+								.getFirstStep().toString()));
+			} else {
+				float oldDistToWaypoint = mOldCurrentLocation.distanceTo(l);
+
+				// Add additional value to account for error
+				if (dist > oldDistToWaypoint + RADIUS) {
+					/*
+					 * This means our most recent location update is FURTHER
+					 * away from our next waypoint than the previous, meaning
+					 * that the user has gone off course.
+					 */
+					Log.v(getClass().getSimpleName(),
+							String.format(
+									"User is moving further away from next waypoint %.2fm vs %.2fm",
+									dist, oldDistToWaypoint));
+					resetNavigation();
+				}
+			}
+
 		}
 
-		return inSampleSize;
-	}
-
-	private Bitmap decodeSampledBitmapFromResource(Resources res, int resId,
-			int reqWidth, int reqHeight) {
-
-		// First decode with inJustDecodeBounds=true to check dimensions
-		final BitmapFactory.Options options = new BitmapFactory.Options();
-		options.inJustDecodeBounds = true;
-		BitmapFactory.decodeResource(res, resId, options);
-
-		// Calculate inSampleSize
-		options.inSampleSize = calculateInSampleSize(options, reqWidth,
-				reqHeight);
-
-		// Decode bitmap with inSampleSize set
-		options.inJustDecodeBounds = false;
-		return BitmapFactory.decodeResource(res, resId, options);
-	}
-
-	@Override
-	protected void onPause() {
-		// TODO Auto-generated method stub
-		super.onPause();
-		converse.clearAnimation();
-	}
-
-	private void setUpAnimations() {
-
-		enlarge = AnimationUtils.loadAnimation(this, R.anim.enlarge);
-		shrink = AnimationUtils.loadAnimation(this, R.anim.shrink);
-		converse.startAnimation(enlarge);
-
-		enlarge.setAnimationListener(new AnimationListener() {
-
-			@Override
-			public void onAnimationStart(Animation animation) {
-			}
-
-			@Override
-			public void onAnimationRepeat(Animation animation) {
-			}
-
-			@Override
-			public void onAnimationEnd(Animation animation) {
-				converse.startAnimation(shrink);
-
-			}
-		});
-
-		shrink.setAnimationListener(new AnimationListener() {
-
-			@Override
-			public void onAnimationStart(Animation animation) {
-			}
-
-			@Override
-			public void onAnimationRepeat(Animation animation) {
-			}
-
-			@Override
-			public void onAnimationEnd(Animation animation) {
-				// TODO Auto-generated method stub
-				converse.startAnimation(enlarge);
-
-			}
-		});
 	}
 
 	/**
@@ -363,13 +332,15 @@ public class NavigationAnimatorActivity extends Activity {
 			Log.i(getClass().getSimpleName(), "Registering BroadcastReciever");
 		}
 
-		setUpAnimations();
 	}
 
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
+		cleanUp();
+	}
 
+	private void cleanUp() {
 		if (isReceiverRegistered) {
 
 			// If registered, unregister now
@@ -378,17 +349,8 @@ public class NavigationAnimatorActivity extends Activity {
 			Log.i(getClass().getSimpleName(), "Unregistering BroadcastReciever");
 		}
 
-		// Unbind from the service
-		if (mBound) {
-			unbindService(mConnection);
-			mBound = false;
-		}
+		mService.stopLocationUpdates();
 
-	}
-
-	@Override
-	protected void onStop() {
-		super.onStop();
 		// Unbind from the service
 		if (mBound) {
 			unbindService(mConnection);
@@ -396,24 +358,11 @@ public class NavigationAnimatorActivity extends Activity {
 		}
 	}
 
-	private void getJourney(Location l) {
-		// Check if we have a data connection
-		if (IOUtils.isOnline(this)) {
+	/**
+	 * Resets the navigation if the user has strayed too far from a waypoint
+	 */
+	private void resetNavigation() {
 
-			new Thread(new Runnable() {
-				@Override
-				public void run() {
-
-					CamdenMarket cm = new CamdenMarket();
-					DirectionsWrapper dw = new DirectionsWrapper(cm.lat,
-							cm.lon, mCurrentLocation.getLatitude(),
-							mCurrentLocation.getLongitude());
-					Journey j = dw.getJourney();
-
-				}
-			}).start();
-
-		}
 	}
 
 	/* Classes and methods for checking location services */

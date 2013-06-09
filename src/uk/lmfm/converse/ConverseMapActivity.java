@@ -58,8 +58,8 @@ public class ConverseMapActivity extends FragmentActivity implements
 
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
 			// Show the Up button in the action bar.
-			getActionBar().setDisplayHomeAsUpEnabled(true);
-			// getActionBar().setTitle(stn.getName());
+			// getActionBar().setDisplayHomeAsUpEnabled(true);
+			getActionBar().setDisplayShowTitleEnabled(false);
 		}
 
 		/*
@@ -100,10 +100,11 @@ public class ConverseMapActivity extends FragmentActivity implements
 	 * Called when the Activity is no longer visible.
 	 */
 	@Override
-	protected void onStop() {
+	protected void onPause() {
+		super.onPause();
 		// Disconnecting the client invalidates it.
 		mLocationClient.disconnect();
-		super.onStop();
+		Log.d(getClass().getSimpleName(), "Disconnected from Location client.");
 	}
 
 	/**
@@ -274,22 +275,8 @@ public class ConverseMapActivity extends FragmentActivity implements
 		return cameraPosition;
 	}
 
-	private CameraPosition getPositionForLocation(LatLng l) {
-		if (mMap == null) {
-			Log.e(getClass().getSimpleName(), "Can't get Camera Position.");
-			return null;
-		}
-
-		CameraPosition cameraPosition = new CameraPosition.Builder().target(l)
-				.zoom(17) // Sets the zoom
-
-				.build(); // Creates a CameraPosition from the builder
-
-		return cameraPosition;
-	}
-
 	private LatLng getLatLngForLocation(Location l) {
-		Log.v("getLatLngForLocation", l.toString());
+		// Log.v("getLatLngForLocation", l.toString());
 		return new LatLng(l.getLatitude(), l.getLongitude());
 	}
 

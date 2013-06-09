@@ -48,8 +48,8 @@ public class ConverseNavigationService extends Service implements
 	@Override
 	public void onCreate() {
 
-		Log.d(getClass().getSimpleName(), "Starting Service");
-		
+		Log.i(getClass().getSimpleName(), "Starting Service");
+
 		/*
 		 * Create a new location client, using the enclosing class to handle
 		 * callbacks.
@@ -64,7 +64,6 @@ public class ConverseNavigationService extends Service implements
 		mLocationRequest.setInterval(UPDATE_INTERVAL);
 		// Set the fastest update interval to 5 second
 		mLocationRequest.setFastestInterval(FASTEST_INTERVAL);
-
 		mLocationClient.connect();
 
 	}
@@ -93,6 +92,8 @@ public class ConverseNavigationService extends Service implements
 	/* Client methods */
 
 	public Location getMostRecentLocation() {
+		if (mLocationClientConnected)
+			return mLocationClient.getLastLocation();
 		return null;
 	}
 
@@ -125,9 +126,14 @@ public class ConverseNavigationService extends Service implements
 		i.setAction(NavigationAnimatorActivity.INTENT_ACTION);
 		i.putExtra(LocationClient.KEY_LOCATION_CHANGED, location);
 
+		String locationString = "New location {%f,%f}";
+
+		Location loc = (Location) i.getExtras().get(
+				LocationClient.KEY_LOCATION_CHANGED);
+
 		Log.v(getClass().getSimpleName(),
-				i.getExtras().get(LocationClient.KEY_LOCATION_CHANGED)
-						.toString());
+				String.format(locationString, loc.getLatitude(),
+						loc.getLongitude()));
 
 		// Broadcast the intent carrying the data
 
@@ -145,7 +151,7 @@ public class ConverseNavigationService extends Service implements
 
 	@Override
 	public void onConnected(Bundle connectionHint) {
-		Log.d(getClass().getSimpleName(), "Connected to Location services");
+		Log.i(getClass().getSimpleName(), "Connected to Location services");
 		mLocationClientConnected = true;
 
 	}
@@ -153,14 +159,14 @@ public class ConverseNavigationService extends Service implements
 	@Override
 	public void onDisconnected() {
 		mLocationClientConnected = false;
-		Log.d(getClass().getSimpleName(), "Disconnected from Location services");
+		Log.i(getClass().getSimpleName(), "Disconnected from Location services");
 
 	}
-	
+
 	@Override
-    public void onDestroy() {
+	public void onDestroy() {
 		Log.d(getClass().getSimpleName(), "Stopping Service");
-        stopLocationUpdates();
-    }
+		stopLocationUpdates();
+	}
 
 }

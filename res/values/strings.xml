@@ -7,7 +7,9 @@
     <string name="title_activity_fullscreen_map">ConverseNav</string>
     <string name="dummy_button">Dummy Button</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
-    <string name="title_activity_converse_map">ConverseMapActivity</string>
+    <string name="title_activity_converse_map">Good Vibrations</string>
     <string name="title_activity_navigation_animator">NavigationAnimatorActivity</string>
+    <string name="ripple_animation">Ripple Animation</string>
+    <string name="enter_address">Enter your address here</string>
 
 </resources>

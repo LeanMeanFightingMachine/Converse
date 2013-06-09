@@ -108,8 +108,8 @@ public class DirectionsWrapper {
 	private double latFrom;
 	private double lonFrom;
 
-	public DirectionsWrapper(double latTo, double lonTo, double latFrom,
-			double lonFrom) {
+	public DirectionsWrapper(double latFrom, double lonFrom, double latTo,
+			double lonTo) {
 		super();
 		this.latTo = latTo;
 		this.lonTo = lonTo;
@@ -182,6 +182,10 @@ public class DirectionsWrapper {
 
 	private Journey parseJSON(String s) throws DirectionsWrapperException {
 		try {
+			if (s == null)
+				throw new DirectionsWrapperException(
+						"Null data encountered; expected a JSON String.");
+
 			JSONObject jObject = new JSONObject(s);
 			String status = jObject.getString("status");
 

@@ -29,10 +29,10 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@drawable/mapmarker"
         android:label="@string/app_name"
         android:logo="@drawable/actionbarlogo"
-        android:theme="@android:style/Theme.DeviceDefault" >
+        android:theme="@android:style/Theme.DeviceDefault" android:largeHeap="true">
         <activity
             android:name="uk.lmfm.converse.ConverseMapActivity"
             android:label="@string/title_activity_converse_map" >
@@ -57,9 +57,9 @@
         </activity>
 
         <service
-            android:name="uk.lmfm.converse.NavigationIntentService"
+            android:name="uk.lmfm.converse.ConverseNavigationService"
             android:exported="false"
-            android:label="ConverseNavigationIntent" >
+            android:label="ConverseNavigationService" >
         </service>
     </application>
 

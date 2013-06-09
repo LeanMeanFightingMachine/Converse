@@ -3,6 +3,8 @@ package uk.lmfm.converse.util;
 import java.util.ArrayList;
 import java.util.List;
 
+import android.location.Location;
+
 import com.google.android.gms.location.Geofence;
 
 public class Journey {
@@ -53,6 +55,11 @@ public class Journey {
 		return (sDiscarded != null) && (gDiscarded != null);
 	}
 
+	public Step getFirstStep() {
+		return steps.isEmpty() ? null : steps.get(0);
+
+	}
+
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
@@ -71,7 +78,7 @@ public class Journey {
 	 * @author niallgunter
 	 * 
 	 */
-	static class Step {
+	public static class Step {
 		static long START_ID = 0;
 
 		long id = 0x0;
@@ -93,6 +100,19 @@ public class Journey {
 			this.id = ++START_ID;
 		}
 
+		public Location asLocation() {
+			Location l = new Location("Step " + id);
+			l.setLatitude(startLat);
+			l.setLongitude(startLon);
+			return l;
+		}
+
+		
+
+		public String getInstruction() {
+			return instructions;
+		}
+
 		public Geofence asGeofence(float radius) {
 			// Build a new Geofence object
 			return new Geofence.Builder()
@@ -104,6 +124,11 @@ public class Journey {
 
 					.setCircularRegion(startLat, startLon, radius)
 					.setExpirationDuration(GEOFENCE_EXPIRATION_TIME).build();
+		}
+
+		public String toString() {
+			return String.format("At {%f, %f} %s\n", startLat, startLon,
+					instructions);
 		}
 	}
 
