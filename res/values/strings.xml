@@ -11,5 +11,8 @@
     <string name="title_activity_navigation_animator">NavigationAnimatorActivity</string>
     <string name="ripple_animation">Ripple Animation</string>
     <string name="enter_address">Enter your address here</string>
+    <string name="title_activity_destination_reached">DestinationReachedActivity</string>
+    <string name="user_arrived">You\'ve arrived!</string>
+    <string name="btn_ok">OK</string>
 
 </resources>

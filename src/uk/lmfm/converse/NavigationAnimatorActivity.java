@@ -5,7 +5,6 @@ import uk.lmfm.converse.util.ConverseVibrator;
 import uk.lmfm.converse.util.Journey;
 import android.annotation.TargetApi;
 import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -287,7 +286,13 @@ public class NavigationAnimatorActivity extends Activity {
 			if (mCurrentLocation.distanceTo(mDestination) <= RADIUS) {
 				reachedDest = true;
 				cleanUp();
-				// TODO: navigate to finished activity
+				Log.i(getClass().getSimpleName(),
+						"User has reached destination");
+
+				// Navigate to the DestinationReachedActivity, since we're done.
+				Intent intent = new Intent(this,
+						DestinationReachedActivity.class);
+				startActivity(intent);
 			}
 
 			// Check if we're within range of a waypoint, notifying user if we
@@ -389,10 +394,9 @@ public class NavigationAnimatorActivity extends Activity {
 			Log.i(getClass().getSimpleName(), "Unregistering BroadcastReciever");
 		}
 
-		mNavigationService.stopLocationUpdates();
-
-		// Unbind from the service
+		// Unbind from the service and stop location updates
 		if (mNavigationBound) {
+			mNavigationService.stopLocationUpdates();
 			unbindService(mLocationServiceConnection);
 			mNavigationBound = false;
 		}
