@@ -2,11 +2,13 @@ package uk.lmfm.converse;
 
 import android.app.Service;
 import android.content.Intent;
+import android.graphics.drawable.AnimationDrawable;
 import android.location.Location;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
+import android.widget.ImageView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesClient;
@@ -127,13 +129,13 @@ public class ConverseNavigationService extends Service implements
 		i.putExtra(LocationClient.KEY_LOCATION_CHANGED, location);
 
 		String locationString = "New location {%f,%f}";
-
-		Location loc = (Location) i.getExtras().get(
-				LocationClient.KEY_LOCATION_CHANGED);
+		String bearing = "Current Bearing %f";
 
 		Log.v(getClass().getSimpleName(),
-				String.format(locationString, loc.getLatitude(),
-						loc.getLongitude()));
+				String.format(locationString, location.getLatitude(),
+						location.getLongitude()));
+		Log.v(getClass().getSimpleName(),
+				String.format(bearing, location.getBearing()));
 
 		// Broadcast the intent carrying the data
 

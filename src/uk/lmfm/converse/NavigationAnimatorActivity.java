@@ -20,6 +20,7 @@ import android.support.v4.app.NavUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ImageView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
@@ -40,7 +41,7 @@ public class NavigationAnimatorActivity extends Activity {
 
 	/* Static fields */
 
-	private static final float RADIUS = 10;
+	private static final float RADIUS = 3;
 	AnimationDrawable ripple;
 
 	public static final String INTENT_ACTION = "uk.lmfm.converse.LOCATION_UPDATE";
@@ -64,6 +65,10 @@ public class NavigationAnimatorActivity extends Activity {
 	private boolean reachedDest = false;
 	private ReceiveLocationUpdate rlu = null;
 	private boolean isReceiverRegistered = false;
+
+	/* Graphical objects */
+	AnimationDrawable frameAnimation;
+	ImageView img;
 
 	/*
 	 * Local Service definitions. Here we define fields for connecting to and
@@ -179,6 +184,7 @@ public class NavigationAnimatorActivity extends Activity {
 									if (j != null) {
 										journey = j;
 										mHasJourneyData = true;
+										Log.v("DEBUG", j.toString());
 										checkIfAtLocation(mCurrentLocation);
 									} else {
 										Log.e(getClass().getSimpleName(),
@@ -232,15 +238,19 @@ public class NavigationAnimatorActivity extends Activity {
 		reachedDest = false;
 		setContentView(R.layout.activity_navigation_animator);
 
-		/*
-		 * ImageView rocketImage = (ImageView) findViewById(R.id.RippleImg);
-		 * 
-		 * rocketImage.setBackgroundResource(R.drawable.ripple_anim); ripple =
-		 * (AnimationDrawable) rocketImage.getBackground();
-		 */
+		loadAnimation();
 
-		// getJourney(mCurrentLocation);
+	}
 
+	private void loadAnimation() {
+		// Load the ImageView that will host the animation and
+		// set its background to our AnimationDrawable XML resource.
+		img = (ImageView) this.findViewById(R.id.RippleImg);
+		img.setBackgroundResource(R.drawable.ripple_anim);
+
+		// Get the background, which has been compiled to an AnimationDrawable
+		// object.
+		frameAnimation = (AnimationDrawable) img.getBackground();
 	}
 
 	/*
@@ -251,7 +261,9 @@ public class NavigationAnimatorActivity extends Activity {
 		super.onStart();
 		// Start our connection
 		startServices();
-		// ripple.start();
+		if (img != null && frameAnimation != null) {
+			frameAnimation.start();
+		}
 
 	}
 
@@ -273,17 +285,31 @@ public class NavigationAnimatorActivity extends Activity {
 	 */
 	private void checkIfAtLocation(Location currLocation) {
 
+		float dist = 0;
+
 		// Sanity check to make sure we have obtained directions from google
 		if (mHasJourneyData) {
 			// Get the next journey step
 			Journey.Step s = journey.getFirstStep();
-			Log.v(getClass().getSimpleName(), String.format(
-					"Checking if current location is near journey step: %s", s));
-			Location l = s.asLocation();
-			float dist = 0;
+
+			if (s != null) {
+				Log.v(getClass().getSimpleName(),
+						String.format(
+								"Checking if current location is near journey step: %s",
+								s));
+				dist = mCurrentLocation.distanceTo(s.asLocation());
+			} else {
+				/*
+				 * We have no step data, but we had valid journey information so
+				 * we must be close. Use the final destination as a waypoint. A
+				 * kludge.
+				 */
+				dist = mCurrentLocation.distanceTo(mDestination);
+			}
 
 			// Check if we're within range of the desired destination
-			if (mCurrentLocation.distanceTo(mDestination) <= RADIUS) {
+			if (mCurrentLocation.distanceTo(mDestination) <= RADIUS
+					+ mCurrentLocation.getAccuracy()) {
 				reachedDest = true;
 				cleanUp();
 				Log.i(getClass().getSimpleName(),
@@ -295,19 +321,43 @@ public class NavigationAnimatorActivity extends Activity {
 				startActivity(intent);
 			}
 
+			Log.v(getClass().getSimpleName(),
+					String.format(
+							"Distance from current location to waypoint is %.2fm (±%.2fm)",
+							dist, mCurrentLocation.getAccuracy()));
+
 			// Check if we're within range of a waypoint, notifying user if we
 			// are, and giving them the next direction to take
-			if ((dist = mCurrentLocation.distanceTo(l)) <= RADIUS) {
+			if (dist <= RADIUS + mCurrentLocation.getAccuracy()) {
 
 				// Vibrate for 500 milliseconds
 
 				ConverseVibrator.vibrateForDirection(s.getInstruction(), this);
-				journey.removeFirstStep();
-				Log.v(getClass().getSimpleName(), String.format(
-						"Removed current step, next step is: %s", journey
-								.getFirstStep().toString()));
+				if (!journey.removeFirstStep()) {
+					return;
+				}
+
+				// If there's only one step, we'll have null afterwards
+
+				if (journey.getFirstStep() != null) {
+					Log.v(getClass().getSimpleName(), String.format(
+							"Removed current step, next step is: %s", journey
+									.getFirstStep().toString()));
+				} else {
+					Log.v(getClass().getSimpleName(),
+							"Removed last step, next step is final destination");
+				}
+
 			} else {
-				float oldDistToWaypoint = mOldCurrentLocation.distanceTo(l);
+				float oldDistToWaypoint;
+
+				if (s != null) {
+					oldDistToWaypoint = mOldCurrentLocation.distanceTo(s
+							.asLocation());
+				} else {
+					oldDistToWaypoint = mOldCurrentLocation
+							.distanceTo(mDestination);
+				}
 
 				// Add additional value to account for error
 				if (dist > oldDistToWaypoint + RADIUS) {
@@ -377,6 +427,14 @@ public class NavigationAnimatorActivity extends Activity {
 			Log.i(getClass().getSimpleName(), "Registering BroadcastReciever");
 		}
 
+	}
+
+	@Override
+	protected void onPause() {
+		super.onPause();
+		if (img != null && frameAnimation != null) {
+			frameAnimation.stop();
+		}
 	}
 
 	@Override

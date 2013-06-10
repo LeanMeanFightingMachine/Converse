@@ -2,7 +2,7 @@
     android:id="@+id/RelativeLayout1"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    android:background="@drawable/walking"
+    android:background="@drawable/ripple_00001"
     android:orientation="vertical" >
 
     <ImageView
@@ -12,5 +12,33 @@
         android:layout_alignParentLeft="true"
         android:layout_alignParentTop="true"
         android:contentDescription="@string/ripple_animation" />
+
+    <ImageView
+        android:id="@+id/navPin"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="144dp"
+        android:src="@drawable/navpin" />
+
+    <ImageView
+        android:id="@+id/converseText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="89dp"
+        android:src="@drawable/conversetext" />
+
+    <TextView
+        android:id="@+id/tvWalking"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/navPin"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="18dp"
+        android:text="@string/walking"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
 
 </RelativeLayout>

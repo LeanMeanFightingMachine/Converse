@@ -14,5 +14,6 @@
     <string name="title_activity_destination_reached">DestinationReachedActivity</string>
     <string name="user_arrived">You\'ve arrived!</string>
     <string name="btn_ok">OK</string>
+    <string name="walking">Walking...</string>
 
 </resources>
