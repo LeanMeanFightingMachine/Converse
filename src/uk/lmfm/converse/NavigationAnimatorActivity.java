@@ -39,20 +39,20 @@ import com.google.android.gms.maps.model.LatLng;
  */
 public class NavigationAnimatorActivity extends Activity {
 
+	/* Static fields */
+
 	private static final float RADIUS = 10;
 	AnimationDrawable ripple;
 
 	public static final String INTENT_ACTION = "uk.lmfm.converse.LOCATION_UPDATE";
-
-	private BluetoothAdapter mBluetooth; // Bluetooth
-	private String leftShoe; // MAC Address of left bluetooth shoe
-	private String rightShoe; // MAC Address of right bluetooth shoe
 
 	// Milliseconds per second
 	private static final int MILLISECONDS_PER_SECOND = 1000;
 	// How we should go for before checking that the user is heading in the
 	// right direction
 	private static final int TIME_OUT = MILLISECONDS_PER_SECOND * 60;
+
+	/* Fields for handling Location data */
 
 	Location mCurrentLocation;
 	Location mDestination;
@@ -62,39 +62,69 @@ public class NavigationAnimatorActivity extends Activity {
 	// Object containing our journey details
 	private Journey journey;
 	private boolean mHasJourneyData = false;
+	private boolean reachedDest = false;
+	private ReceiveLocationUpdate rlu = null;
+	private boolean isReceiverRegistered = false;
+
+	/*
+	 * Local Service definitions. Here we define fields for connecting to and
+	 * communicating with our location update and bluetooth services.
+	 */
+	ConverseNavigationService mNavigationService;
+	Object mBluetoothService; // TODO: Create class
+	boolean mNavigationBound = false;
+	boolean mBluetoothBound = false;
 
 	/**
 	 * Callback for LocalService. We use this to start the location updates from
 	 * the service.
 	 */
-	private ServiceConnection mConnection = new ServiceConnection() {
+	private ServiceConnection mLocationServiceConnection = new ServiceConnection() {
 
 		@Override
 		public void onServiceConnected(ComponentName className, IBinder service) {
 			// We've bound to LocalService, cast the IBinder and get
 			// LocalService instance
 			LocalBinder binder = (LocalBinder) service;
-			mService = binder.getService();
-			mCurrentLocation = mService.getMostRecentLocation();
+			mNavigationService = binder.getService();
+			mCurrentLocation = mNavigationService.getMostRecentLocation();
 
-			mService.startLocationUpdates();
-			mBound = true;
+			mNavigationService.startLocationUpdates();
+			mNavigationBound = true;
 			Log.d(getClass().getSimpleName(), "Bound to Service");
 		}
 
 		@Override
 		public void onServiceDisconnected(ComponentName arg0) {
-			mBound = false;
+			mNavigationBound = false;
 			Log.d(getClass().getSimpleName(), "Disconnected from Service");
 		}
 	};
 
-	private boolean reachedDest = false;
-	private ReceiveLocationUpdate rlu = null;
-	private boolean isReceiverRegistered = false;
+	/**
+	 * Callback for LocalService. We use this to start to initiate a connection
+	 * to our bluetooth service.
+	 */
+	private ServiceConnection mBluetoothServiceConnection = new ServiceConnection() {
 
-	ConverseNavigationService mService;
-	boolean mBound = false;
+		@Override
+		public void onServiceConnected(ComponentName className, IBinder service) {
+			// We've bound to LocalService, cast the IBinder and get
+			// LocalService instance
+			LocalBinder binder = (LocalBinder) service;
+			mBluetoothService = binder.getService();
+
+			mBluetoothBound = true;
+			Log.d(getClass().getSimpleName(), "Bound to bluetooth service");
+		}
+
+		@Override
+		public void onServiceDisconnected(ComponentName arg0) {
+			mNavigationBound = false;
+			Log.d(getClass().getSimpleName(),
+					"Disconnected from bluetooth service");
+		}
+	};
 
 	/**
 	 * Inner class used to handle broadcasts that have been sent by local
@@ -110,8 +140,8 @@ public class NavigationAnimatorActivity extends Activity {
 		 */
 		@Override
 		public void onReceive(Context context, Intent intent) {
-			// TODO Auto-generated method stub
 
+			// Get the Intent action
 			String action = intent.getAction();
 
 			// send message to activity
@@ -154,7 +184,8 @@ public class NavigationAnimatorActivity extends Activity {
 									} else {
 										Log.e(getClass().getSimpleName(),
 												"Could not retrieve directions for journey");
-										// TODO: popup indicating invalid journey, try again
+										// TODO: popup indicating invalid
+										// journey, try again
 									}
 
 								}
@@ -220,10 +251,19 @@ public class NavigationAnimatorActivity extends Activity {
 	protected void onStart() {
 		super.onStart();
 		// Start our connection
-		Intent intent = new Intent(this, ConverseNavigationService.class);
-		bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+		startServices();
 		// ripple.start();
 
+	}
+
+	/**
+	 * Starts or binds the services required by this activity.
+	 */
+	private void startServices() {
+		Intent locationUpdateIntent = new Intent(this,
+				ConverseNavigationService.class);
+		bindService(locationUpdateIntent, mLocationServiceConnection,
+				Context.BIND_AUTO_CREATE);
 	}
 
 	/**
@@ -349,12 +389,12 @@ public class NavigationAnimatorActivity extends Activity {
 			Log.i(getClass().getSimpleName(), "Unregistering BroadcastReciever");
 		}
 
-		mService.stopLocationUpdates();
+		mNavigationService.stopLocationUpdates();
 
 		// Unbind from the service
-		if (mBound) {
-			unbindService(mConnection);
-			mBound = false;
+		if (mNavigationBound) {
+			unbindService(mLocationServiceConnection);
+			mNavigationBound = false;
 		}
 	}
 
@@ -362,7 +402,7 @@ public class NavigationAnimatorActivity extends Activity {
 	 * Resets the navigation if the user has strayed too far from a waypoint
 	 */
 	private void resetNavigation() {
-
+		mHasJourneyData = false;
 	}
 
 	/* Classes and methods for checking location services */
