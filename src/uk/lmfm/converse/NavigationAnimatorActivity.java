@@ -1,20 +1,29 @@
 package uk.lmfm.converse;
 
+<<<<<<< HEAD
 import uk.lmfm.amarino.R;
 import uk.lmfm.converse.ConverseNavigationService.LocalBinder;
+=======
+import uk.lmfm.converse.async.JourneyDownloader;
+import uk.lmfm.converse.services.ConverseNavigationService;
+import uk.lmfm.converse.services.ConverseNavigationService.LocalBinder;
+>>>>>>> 21453c2bc09fa012c3e582c0fab6147b9a6008a9
 import uk.lmfm.converse.util.ConverseVibrator;
 import uk.lmfm.converse.util.Journey;
 import android.annotation.TargetApi;
 import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.res.Resources;
 import android.graphics.drawable.AnimationDrawable;
 import android.location.Location;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -22,6 +31,7 @@ import android.support.v4.app.NavUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ImageView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
@@ -40,20 +50,20 @@ import com.google.android.gms.maps.model.LatLng;
  */
 public class NavigationAnimatorActivity extends Activity {
 
-	private static final float RADIUS = 10;
+	/* Static fields */
+
+	private static final float RADIUS = 3;
 	AnimationDrawable ripple;
 
 	public static final String INTENT_ACTION = "uk.lmfm.converse.LOCATION_UPDATE";
-
-	private BluetoothAdapter mBluetooth; // Bluetooth
-	private String leftShoe; // MAC Address of left bluetooth shoe
-	private String rightShoe; // MAC Address of right bluetooth shoe
 
 	// Milliseconds per second
 	private static final int MILLISECONDS_PER_SECOND = 1000;
 	// How we should go for before checking that the user is heading in the
 	// right direction
 	private static final int TIME_OUT = MILLISECONDS_PER_SECOND * 60;
+
+	/* Fields for handling Location data */
 
 	Location mCurrentLocation;
 	Location mDestination;
@@ -63,39 +73,73 @@ public class NavigationAnimatorActivity extends Activity {
 	// Object containing our journey details
 	private Journey journey;
 	private boolean mHasJourneyData = false;
+	private boolean reachedDest = false;
+	private ReceiveLocationUpdate rlu = null;
+	private boolean isReceiverRegistered = false;
+
+	/* Graphical objects */
+	AnimationDrawable frameAnimation;
+	ImageView img;
+
+	/*
+	 * Local Service definitions. Here we define fields for connecting to and
+	 * communicating with our location update and bluetooth services.
+	 */
+	ConverseNavigationService mNavigationService;
+	Object mBluetoothService; // TODO: Create class
+	boolean mNavigationBound = false;
+	boolean mBluetoothBound = false;
 
 	/**
 	 * Callback for LocalService. We use this to start the location updates from
 	 * the service.
 	 */
-	private ServiceConnection mConnection = new ServiceConnection() {
+	private ServiceConnection mLocationServiceConnection = new ServiceConnection() {
 
 		@Override
 		public void onServiceConnected(ComponentName className, IBinder service) {
 			// We've bound to LocalService, cast the IBinder and get
 			// LocalService instance
 			LocalBinder binder = (LocalBinder) service;
-			mService = binder.getService();
-			mCurrentLocation = mService.getMostRecentLocation();
+			mNavigationService = binder.getService();
+			mCurrentLocation = mNavigationService.getMostRecentLocation();
 
-			mService.startLocationUpdates();
-			mBound = true;
+			mNavigationService.startLocationUpdates();
+			mNavigationBound = true;
 			Log.d(getClass().getSimpleName(), "Bound to Service");
 		}
 
 		@Override
 		public void onServiceDisconnected(ComponentName arg0) {
-			mBound = false;
+			mNavigationBound = false;
 			Log.d(getClass().getSimpleName(), "Disconnected from Service");
 		}
 	};
 
-	private boolean reachedDest = false;
-	private ReceiveLocationUpdate rlu = null;
-	private boolean isReceiverRegistered = false;
+	/**
+	 * Callback for LocalService. We use this to start to initiate a connection
+	 * to our bluetooth service.
+	 */
+	private ServiceConnection mBluetoothServiceConnection = new ServiceConnection() {
 
-	ConverseNavigationService mService;
-	boolean mBound = false;
+		@Override
+		public void onServiceConnected(ComponentName className, IBinder service) {
+			// We've bound to LocalService, cast the IBinder and get
+			// LocalService instance
+			LocalBinder binder = (LocalBinder) service;
+			mBluetoothService = binder.getService();
+
+			mBluetoothBound = true;
+			Log.d(getClass().getSimpleName(), "Bound to bluetooth service");
+		}
+
+		@Override
+		public void onServiceDisconnected(ComponentName arg0) {
+			mNavigationBound = false;
+			Log.d(getClass().getSimpleName(),
+					"Disconnected from bluetooth service");
+		}
+	};
 
 	/**
 	 * Inner class used to handle broadcasts that have been sent by local
@@ -111,8 +155,8 @@ public class NavigationAnimatorActivity extends Activity {
 		 */
 		@Override
 		public void onReceive(Context context, Intent intent) {
-			// TODO Auto-generated method stub
 
+			// Get the Intent action
 			String action = intent.getAction();
 
 			// send message to activity
@@ -151,11 +195,13 @@ public class NavigationAnimatorActivity extends Activity {
 									if (j != null) {
 										journey = j;
 										mHasJourneyData = true;
+										Log.v("DEBUG", j.toString());
 										checkIfAtLocation(mCurrentLocation);
 									} else {
 										Log.e(getClass().getSimpleName(),
 												"Could not retrieve directions for journey");
-										// TODO: popup indicating invalid journey, try again
+										// TODO: popup indicating invalid
+										// journey, try again
 									}
 
 								}
@@ -203,14 +249,10 @@ public class NavigationAnimatorActivity extends Activity {
 		reachedDest = false;
 		setContentView(R.layout.activity_navigation_animator);
 
-		/*
-		 * ImageView rocketImage = (ImageView) findViewById(R.id.RippleImg);
-		 * 
-		 * rocketImage.setBackgroundResource(R.drawable.ripple_anim); ripple =
-		 * (AnimationDrawable) rocketImage.getBackground();
-		 */
-
-		// getJourney(mCurrentLocation);
+		img = (ImageView) NavigationAnimatorActivity.this
+				.findViewById(R.id.RippleImg);
+		img.setBackgroundResource(R.drawable.ripple_anim);
+		frameAnimation = (AnimationDrawable) img.getBackground();
 
 	}
 
@@ -221,10 +263,64 @@ public class NavigationAnimatorActivity extends Activity {
 	protected void onStart() {
 		super.onStart();
 		// Start our connection
-		Intent intent = new Intent(this, ConverseNavigationService.class);
-		bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
-		// ripple.start();
+		startServices();
+		startAnimation();
 
+	}
+
+	public void startAnimation() {
+		if (img != null && frameAnimation != null) {
+			if (!frameAnimation.isRunning())
+				frameAnimation.start();
+		}
+	}
+
+	/**
+	 * This displays a dialog informing the user that the bluetooth connection
+	 * to the shoes has failed.The user has the option of navigating to a
+	 * settings page or back to the initial activity.
+	 */
+	private void showBluetoothDialog() {
+		// 1. Instantiate an AlertDialog.Builder with its constructor
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+		// 2. Chain together various setter methods to set the dialog
+		// characteristics
+		builder.setMessage(R.string.set_destination_text).setTitle(
+				R.string.set_destination_title);
+
+		builder.setPositiveButton(R.string.btn_ok,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						/*
+						 * user clicked OK button. Return to bluetooth
+						 * connecting activity.
+						 */
+					}
+				});
+		builder.setNeutralButton(R.string.btn_settings,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						// TODO: navigate to a settings activity to reconfigure
+						// shoes
+					}
+				});
+
+		builder.setCancelable(false);
+
+		// 3. Get the AlertDialog from create()
+		AlertDialog dialog = builder.create();
+		dialog.show();
+	}
+
+	/**
+	 * Starts or binds the services required by this activity.
+	 */
+	private void startServices() {
+		Intent locationUpdateIntent = new Intent(this,
+				ConverseNavigationService.class);
+		bindService(locationUpdateIntent, mLocationServiceConnection,
+				Context.BIND_AUTO_CREATE);
 	}
 
 	/**
@@ -235,35 +331,89 @@ public class NavigationAnimatorActivity extends Activity {
 	 */
 	private void checkIfAtLocation(Location currLocation) {
 
+		float dist = 0;
+
 		// Sanity check to make sure we have obtained directions from google
 		if (mHasJourneyData) {
 			// Get the next journey step
 			Journey.Step s = journey.getFirstStep();
-			Log.v(getClass().getSimpleName(), String.format(
-					"Checking if current location is near journey step: %s", s));
-			Location l = s.asLocation();
-			float dist = 0;
+
+			if (s != null) {
+				Log.v(getClass().getSimpleName(),
+						String.format(
+								"Checking if current location is near journey step: %s",
+								s));
+				dist = mCurrentLocation.distanceTo(s.asLocation());
+			} else {
+				/*
+				 * We have no step data, but we had valid journey information so
+				 * we must be close. Use the final destination as a waypoint. A
+				 * kludge.
+				 */
+				dist = mCurrentLocation.distanceTo(mDestination);
+			}
 
 			// Check if we're within range of the desired destination
-			if (mCurrentLocation.distanceTo(mDestination) <= RADIUS) {
+			if (mCurrentLocation.distanceTo(mDestination) <= RADIUS
+					+ mCurrentLocation.getAccuracy()) {
 				reachedDest = true;
 				cleanUp();
-				// TODO: navigate to finished activity
+				Log.i(getClass().getSimpleName(),
+						"User has reached destination");
+
+				// Navigate to the DestinationReachedActivity, since we're done.
+				Intent intent = new Intent(this,
+						DestinationReachedActivity.class);
+				startActivity(intent);
 			}
+
+			Log.v(getClass().getSimpleName(),
+					String.format(
+							"Distance from current location to waypoint is %.2fm (±%.2fm)",
+							dist, mCurrentLocation.getAccuracy()));
 
 			// Check if we're within range of a waypoint, notifying user if we
 			// are, and giving them the next direction to take
-			if ((dist = mCurrentLocation.distanceTo(l)) <= RADIUS) {
+			if (dist <= RADIUS + mCurrentLocation.getAccuracy()) {
+
+				/*
+				 * Returns the approximate initial bearing in degrees East of
+				 * true North when traveling along the shortest path between
+				 * this location and the given location. The shortest path is
+				 * defined using the WGS84 ellipsoid. Locations that are
+				 * (nearly) antipodal may produce meaningless results.
+				 */
+				float bearing = mCurrentLocation.bearingTo(s.asLocation());
 
 				// Vibrate for 500 milliseconds
 
-				ConverseVibrator.vibrateForDirection(s.getInstruction(), this);
-				journey.removeFirstStep();
-				Log.v(getClass().getSimpleName(), String.format(
-						"Removed current step, next step is: %s", journey
-								.getFirstStep().toString()));
+				ConverseVibrator.vibrateForDirection(s.getInstruction(),
+						bearing, this);
+				if (!journey.removeFirstStep()) {
+					return;
+				}
+
+				// If there's only one step, we'll have null afterwards
+
+				if (journey.getFirstStep() != null) {
+					Log.v(getClass().getSimpleName(), String.format(
+							"Removed current step, next step is: %s", journey
+									.getFirstStep().toString()));
+				} else {
+					Log.v(getClass().getSimpleName(),
+							"Removed last step, next step is final destination");
+				}
+
 			} else {
-				float oldDistToWaypoint = mOldCurrentLocation.distanceTo(l);
+				float oldDistToWaypoint;
+
+				if (s != null) {
+					oldDistToWaypoint = mOldCurrentLocation.distanceTo(s
+							.asLocation());
+				} else {
+					oldDistToWaypoint = mOldCurrentLocation
+							.distanceTo(mDestination);
+				}
 
 				// Add additional value to account for error
 				if (dist > oldDistToWaypoint + RADIUS) {
@@ -322,6 +472,8 @@ public class NavigationAnimatorActivity extends Activity {
 	public void onResume() {
 		super.onResume(); // Always call the superclass method first
 
+		startAnimation();
+
 		if (!isReceiverRegistered) {
 
 			// If not registered, register now
@@ -333,6 +485,14 @@ public class NavigationAnimatorActivity extends Activity {
 			Log.i(getClass().getSimpleName(), "Registering BroadcastReciever");
 		}
 
+	}
+
+	@Override
+	protected void onPause() {
+		super.onPause();
+		if (img != null && frameAnimation != null) {
+			frameAnimation.stop();
+		}
 	}
 
 	@Override
@@ -350,12 +510,11 @@ public class NavigationAnimatorActivity extends Activity {
 			Log.i(getClass().getSimpleName(), "Unregistering BroadcastReciever");
 		}
 
-		mService.stopLocationUpdates();
-
-		// Unbind from the service
-		if (mBound) {
-			unbindService(mConnection);
-			mBound = false;
+		// Unbind from the service and stop location updates
+		if (mNavigationBound) {
+			mNavigationService.stopLocationUpdates();
+			unbindService(mLocationServiceConnection);
+			mNavigationBound = false;
 		}
 	}
 
@@ -363,7 +522,7 @@ public class NavigationAnimatorActivity extends Activity {
 	 * Resets the navigation if the user has strayed too far from a waypoint
 	 */
 	private void resetNavigation() {
-
+		mHasJourneyData = false;
 	}
 
 	/* Classes and methods for checking location services */

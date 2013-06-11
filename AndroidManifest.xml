@@ -34,9 +34,9 @@
         android:allowBackup="true"
         android:icon="@drawable/mapmarker"
         android:label="@string/app_name"
+        android:largeHeap="true"
         android:logo="@drawable/actionbarlogo"
-        android:theme="@style/AppBaseTheme" android:largeHeap="true">
-        
+        android:theme="@style/AppBaseTheme">
         <activity
             android:name="uk.lmfm.amarino.MainScreen"
             android:label="@string/title_activity_converse_map"
@@ -47,6 +47,8 @@
             </intent-filter>
         </activity>
         
+        <!-- android:theme="@android:style/Theme.DeviceDefault" > -->
+
         <activity
             android:name="uk.lmfm.converse.ConverseMapActivity"
             android:label="@string/title_activity_converse_map" >
@@ -80,7 +82,7 @@
         </activity>
 
         <service
-            android:name="uk.lmfm.converse.ConverseNavigationService"
+            android:name="uk.lmfm.converse.services.ConverseNavigationService"
             android:exported="false"
             android:label="ConverseNavigationService" >
         </service>
@@ -95,6 +97,26 @@
             </intent-filter>
         </receiver>
         
+        <activity
+            android:name="uk.lmfm.converse.DestinationReachedActivity"
+            android:label="@string/title_activity_destination_reached"
+            android:parentActivityName="uk.lmfm.converse.NavigationAnimatorActivity" >
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="uk.lmfm.converse.NavigationAnimatorActivity" />
+        </activity>
+        <activity
+            android:name="uk.lmfm.converse.SplashActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:label="@string/title_activity_splash"
+            android:theme="@style/FullscreenTheme" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+>>>>>>> 21453c2bc09fa012c3e582c0fab6147b9a6008a9
     </application>
 
 </manifest>
