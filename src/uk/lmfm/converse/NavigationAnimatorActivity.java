@@ -1,13 +1,9 @@
 package uk.lmfm.converse;
 
-<<<<<<< HEAD
 import uk.lmfm.amarino.R;
-import uk.lmfm.converse.ConverseNavigationService.LocalBinder;
-=======
 import uk.lmfm.converse.async.JourneyDownloader;
 import uk.lmfm.converse.services.ConverseNavigationService;
 import uk.lmfm.converse.services.ConverseNavigationService.LocalBinder;
->>>>>>> 21453c2bc09fa012c3e582c0fab6147b9a6008a9
 import uk.lmfm.converse.util.ConverseVibrator;
 import uk.lmfm.converse.util.Journey;
 import android.annotation.TargetApi;
@@ -20,10 +16,8 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.content.res.Resources;
 import android.graphics.drawable.AnimationDrawable;
 import android.location.Location;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -369,7 +363,7 @@ public class NavigationAnimatorActivity extends Activity {
 
 			Log.v(getClass().getSimpleName(),
 					String.format(
-							"Distance from current location to waypoint is %.2fm (±%.2fm)",
+							"Distance from current location to waypoint is %.2fm (��%.2fm)",
 							dist, mCurrentLocation.getAccuracy()));
 
 			// Check if we're within range of a waypoint, notifying user if we

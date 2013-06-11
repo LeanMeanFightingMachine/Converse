@@ -317,7 +317,7 @@ public class MainScreen extends Activity {
 				connectButton.setEnabled(true);
 				connectButton.setText(R.string.connect);
 			}
-			
+			/*
 			// If only left shoe connected, connect to right
 			if (shoeManager.getLeftShoe().state == AmarinoIntent.CONNECTED && shoeManager.getRightShoe().state != AmarinoIntent.CONNECTED)
 			{	
@@ -338,9 +338,9 @@ public class MainScreen extends Activity {
 				connectButton.setEnabled(false);
 				connectButton.setText(R.string.connecting);
 			}
-			
+			*/
 			// If both connected, allow map
-			if (shoeManager.getLeftShoe().state == AmarinoIntent.CONNECTED && shoeManager.getRightShoe().state == AmarinoIntent.CONNECTED)
+			if (/*shoeManager.getLeftShoe().state == AmarinoIntent.CONNECTED && */ shoeManager.getRightShoe().state == AmarinoIntent.CONNECTED)
 			{	
 				connectLoader.setVisibility(ProgressBar.INVISIBLE);
 				introTextView.setText(R.string.mainscreen_description_success);
