@@ -1,5 +1,6 @@
 package uk.lmfm.converse;
 
+import uk.lmfm.amarino.R;
 import uk.lmfm.converse.async.JourneyDownloader;
 import uk.lmfm.converse.services.ConverseNavigationService;
 import uk.lmfm.converse.services.ConverseNavigationService.LocalBinder;
@@ -377,7 +378,7 @@ public class NavigationAnimatorActivity extends Activity {
 
 			Log.v(getClass().getSimpleName(),
 					String.format(
-							"Distance from current location to waypoint is %.2fm (±%.2fm)",
+							"Distance from current location to waypoint is %.2fm (��%.2fm)",
 							dist, mCurrentLocation.getAccuracy()));
 
 			// Check if we're within range of a waypoint, notifying user if we

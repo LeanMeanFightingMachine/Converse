@@ -1,5 +1,7 @@
 package uk.lmfm.converse;
 
+
+import uk.lmfm.amarino.R;
 import uk.lmfm.converse.async.GetAddressTask;
 import uk.lmfm.converse.util.LocationUtils;
 import android.annotation.SuppressLint;
