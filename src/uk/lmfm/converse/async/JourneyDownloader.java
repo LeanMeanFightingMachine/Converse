@@ -1,4 +1,4 @@
-package uk.lmfm.converse;
+package uk.lmfm.converse.async;
 
 import uk.lmfm.converse.util.DirectionsWrapper;
 import uk.lmfm.converse.util.IOUtils;
@@ -20,13 +20,19 @@ public abstract class JourneyDownloader implements Runnable {
 		this.c = c;
 	}
 
+	/**
+	 * Abstract method to handle the retrieval of a journey object
+	 * 
+	 * @param j
+	 */
 	public abstract void handleJourney(Journey j);
 
 	@Override
 	public void run() {
 		// Check if we have a data connection
 		if (IOUtils.isOnline(c)) {
-			Log.d(getClass().getSimpleName(), "Downloading Journey information from Google.");
+			Log.d(getClass().getSimpleName(),
+					"Downloading Journey information from Google.");
 			DirectionsWrapper dw = new DirectionsWrapper(start.getLatitude(),
 					start.getLongitude(), dest.getLatitude(),
 					dest.getLongitude());

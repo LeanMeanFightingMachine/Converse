@@ -58,7 +58,7 @@
         </activity>
 
         <service
-            android:name="uk.lmfm.converse.ConverseNavigationService"
+            android:name="uk.lmfm.converse.services.ConverseNavigationService"
             android:exported="false"
             android:label="ConverseNavigationService" >
         </service>
@@ -70,6 +70,17 @@
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="uk.lmfm.converse.NavigationAnimatorActivity" />
+        </activity>
+        <activity
+            android:name="uk.lmfm.converse.SplashActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:label="@string/title_activity_splash"
+            android:theme="@style/FullscreenTheme" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
         </activity>
     </application>
 

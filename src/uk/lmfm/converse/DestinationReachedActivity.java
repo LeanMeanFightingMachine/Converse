@@ -1,5 +1,6 @@
 package uk.lmfm.converse;
 
+import uk.lmfm.converse.R;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Intent;

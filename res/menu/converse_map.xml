@@ -1,9 +1,11 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android" >
-    <item
+
+    <item
         android:id="@+id/menu_search"
         android:actionViewClass="android.widget.SearchView"
         android:icon="@drawable/ic_menu_search"
-        android:showAsAction="ifRoom|collapseActionView"
-        android:title="derp"/>
+        android:showAsAction="always|collapseActionView"
+        android:title="@+string/d:fd
+        "/>
 
 </menu>

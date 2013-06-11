@@ -1,7 +1,10 @@
 package uk.lmfm.converse;
 
+import uk.lmfm.converse.async.GetAddressTask;
 import uk.lmfm.converse.util.LocationUtils;
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.location.Location;
@@ -9,9 +12,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.Menu;
-import android.widget.Toast;
+import android.view.MenuItem;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesClient;
@@ -46,6 +48,9 @@ public class ConverseMapActivity extends FragmentActivity implements
 	// Current location
 	private Location mCurrentLocation;
 
+	private Menu menu;
+	private boolean isDialogShowing = false;
+
 	private static final LatLng LEANMEAN = new LatLng(51.543865, -0.149188);
 
 	@SuppressLint("NewApi")
@@ -73,6 +78,83 @@ public class ConverseMapActivity extends FragmentActivity implements
 
 	}
 
+	private void showDialog() {
+
+		if (isDialogShowing) {
+			return;
+		}
+
+		// 1. Instantiate an AlertDialog.Builder with its constructor
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+		// 2. Chain together various setter methods to set the dialog
+		// characteristics
+		builder.setMessage(R.string.set_destination_text).setTitle(
+				R.string.set_destination_title);
+
+		builder.setPositiveButton(R.string.btn_ok,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						/*
+						 * user clicked OK button. Do nothing and dispose of
+						 * this
+						 */
+						isDialogShowing = false;
+					}
+				});
+		builder.setNeutralButton(R.string.btn_search,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						// User cancelled the dialog
+						if (menu != null) {
+							MenuItem item = menu.findItem(R.id.menu_search);
+							item.expandActionView();
+							isDialogShowing = false;
+						}
+					}
+				});
+
+		builder.setCancelable(false);
+
+		// 3. Get the AlertDialog from create()
+		AlertDialog dialog = builder.create();
+		dialog.show();
+		isDialogShowing = true;
+	}
+
+	private void showBluetoothDialog() {
+		// 1. Instantiate an AlertDialog.Builder with its constructor
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+		// 2. Chain together various setter methods to set the dialog
+		// characteristics
+		builder.setMessage(R.string.set_destination_text).setTitle(
+				R.string.set_destination_title);
+
+		builder.setPositiveButton(R.string.btn_ok,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						/*
+						 * user clicked OK button. Return to bluetooth
+						 * connecting activity.
+						 */
+					}
+				});
+		builder.setNeutralButton(R.string.btn_settings,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						// TODO: navigate to a settings activity to reconfigure
+						// shoes
+					}
+				});
+
+		builder.setCancelable(false);
+
+		// 3. Get the AlertDialog from create()
+		AlertDialog dialog = builder.create();
+		dialog.show();
+	}
+
 	/*
 	 * Called when the Activity becomes visible.
 	 */
@@ -86,6 +168,7 @@ public class ConverseMapActivity extends FragmentActivity implements
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
+		this.menu = menu;
 		getMenuInflater().inflate(R.menu.converse_map, menu);
 		return true;
 	}
@@ -94,6 +177,7 @@ public class ConverseMapActivity extends FragmentActivity implements
 	protected void onResume() {
 		super.onResume();
 		setUpMapIfNeeded();
+		showDialog();
 	}
 
 	/*
@@ -149,17 +233,9 @@ public class ConverseMapActivity extends FragmentActivity implements
 	private void setUpMap() {
 
 		mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
-		mMap.addMarker(new MarkerOptions()
-				.position(LEANMEAN)
-				.title("lmfm")
-				.icon(BitmapDescriptorFactory
-						.fromResource(R.drawable.mapmarker)));
+
 		mMap.setMyLocationEnabled(true);
-		Toast t = Toast.makeText(this,
-				"Long press a location on the map to set your destination",
-				Toast.LENGTH_LONG);
-		t.setGravity(Gravity.TOP, 5, 40);
-		t.show();
+
 		addMapListeners();
 
 	}
@@ -172,20 +248,42 @@ public class ConverseMapActivity extends FragmentActivity implements
 			mMap.setOnMapLongClickListener(new OnMapLongClickListener() {
 
 				@Override
-				public void onMapLongClick(LatLng point) {
+				public void onMapLongClick(final LatLng point) {
 					// Check that we have a map before we attempt to add a
 					// marker
 					if (ConverseMapActivity.this.mMap != null) {
+
+						Location pressed = new Location("MARKER");
+						pressed.setLatitude(point.latitude);
+						pressed.setLongitude(point.longitude);
 
 						// Remove existing markers first
 						mMap.clear();
 
 						// Add our new marker
-						mMap.addMarker(new MarkerOptions()
+						final Marker m = mMap.addMarker(new MarkerOptions()
 								.position(point)
-								.title("Secret Destination!")
+								.title("Your Destination")
+								.snippet("Retrieving address...")
 								.icon(BitmapDescriptorFactory
 										.fromResource(R.drawable.mapmarker)));
+
+						/*
+						 * Reverse geocoding is long-running and synchronous.
+						 * Run it on a background thread. Pass the current
+						 * location to the background task. When the task
+						 * finishes, onPostExecute() displays the address.
+						 */
+						GetAddressTask gat = new GetAddressTask(
+								ConverseMapActivity.this) {
+
+							@Override
+							protected void onPostExecute(String address) {
+								m.setSnippet(address);
+							}
+						};
+
+						// gat.execute(pressed);
 
 					}
 
@@ -205,9 +303,6 @@ public class ConverseMapActivity extends FragmentActivity implements
 
 						LatLng ll = marker.getPosition();
 
-						if (ll != null)
-							Log.v("Testing LatLng", "Heeeeello");
-
 						Intent intent = new Intent(ConverseMapActivity.this,
 								NavigationAnimatorActivity.class);
 
@@ -215,7 +310,7 @@ public class ConverseMapActivity extends FragmentActivity implements
 
 						startActivity(intent);
 
-						return false;
+						return true;
 
 					}
 
@@ -321,8 +416,7 @@ public class ConverseMapActivity extends FragmentActivity implements
 	@Override
 	public void onConnected(Bundle connectionHint) {
 		// Display the connection status
-		Toast.makeText(this, "Connected to Location Services",
-				Toast.LENGTH_SHORT).show();
+		Log.d(getClass().getSimpleName(), "Connected to location services.");
 		mCurrentLocation = mLocationClient.getLastLocation();
 
 		// We very rarely can get a null location.
@@ -338,8 +432,8 @@ public class ConverseMapActivity extends FragmentActivity implements
 	@Override
 	public void onDisconnected() {
 		// Display the connection status
-		Toast.makeText(this, "Disconnected. Please re-connect.",
-				Toast.LENGTH_SHORT).show();
+		Log.e(getClass().getSimpleName(),
+				"Disconnected from location services.");
 	}
 
 	@Override

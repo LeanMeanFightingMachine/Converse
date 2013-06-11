@@ -1,18 +1,24 @@
 package uk.lmfm.converse;
 
-import uk.lmfm.converse.ConverseNavigationService.LocalBinder;
+import uk.lmfm.converse.async.JourneyDownloader;
+import uk.lmfm.converse.services.ConverseNavigationService;
+import uk.lmfm.converse.services.ConverseNavigationService.LocalBinder;
 import uk.lmfm.converse.util.ConverseVibrator;
 import uk.lmfm.converse.util.Journey;
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.res.Resources;
 import android.graphics.drawable.AnimationDrawable;
 import android.location.Location;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -238,19 +244,11 @@ public class NavigationAnimatorActivity extends Activity {
 		reachedDest = false;
 		setContentView(R.layout.activity_navigation_animator);
 
-		loadAnimation();
-
-	}
-
-	private void loadAnimation() {
-		// Load the ImageView that will host the animation and
-		// set its background to our AnimationDrawable XML resource.
-		img = (ImageView) this.findViewById(R.id.RippleImg);
+		img = (ImageView) NavigationAnimatorActivity.this
+				.findViewById(R.id.RippleImg);
 		img.setBackgroundResource(R.drawable.ripple_anim);
-
-		// Get the background, which has been compiled to an AnimationDrawable
-		// object.
 		frameAnimation = (AnimationDrawable) img.getBackground();
+
 	}
 
 	/*
@@ -261,10 +259,53 @@ public class NavigationAnimatorActivity extends Activity {
 		super.onStart();
 		// Start our connection
 		startServices();
-		if (img != null && frameAnimation != null) {
-			frameAnimation.start();
-		}
+		startAnimation();
 
+	}
+
+	public void startAnimation() {
+		if (img != null && frameAnimation != null) {
+			if (!frameAnimation.isRunning())
+				frameAnimation.start();
+		}
+	}
+
+	/**
+	 * This displays a dialog informing the user that the bluetooth connection
+	 * to the shoes has failed.The user has the option of navigating to a
+	 * settings page or back to the initial activity.
+	 */
+	private void showBluetoothDialog() {
+		// 1. Instantiate an AlertDialog.Builder with its constructor
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+		// 2. Chain together various setter methods to set the dialog
+		// characteristics
+		builder.setMessage(R.string.set_destination_text).setTitle(
+				R.string.set_destination_title);
+
+		builder.setPositiveButton(R.string.btn_ok,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						/*
+						 * user clicked OK button. Return to bluetooth
+						 * connecting activity.
+						 */
+					}
+				});
+		builder.setNeutralButton(R.string.btn_settings,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						// TODO: navigate to a settings activity to reconfigure
+						// shoes
+					}
+				});
+
+		builder.setCancelable(false);
+
+		// 3. Get the AlertDialog from create()
+		AlertDialog dialog = builder.create();
+		dialog.show();
 	}
 
 	/**
@@ -330,9 +371,19 @@ public class NavigationAnimatorActivity extends Activity {
 			// are, and giving them the next direction to take
 			if (dist <= RADIUS + mCurrentLocation.getAccuracy()) {
 
+				/*
+				 * Returns the approximate initial bearing in degrees East of
+				 * true North when traveling along the shortest path between
+				 * this location and the given location. The shortest path is
+				 * defined using the WGS84 ellipsoid. Locations that are
+				 * (nearly) antipodal may produce meaningless results.
+				 */
+				float bearing = mCurrentLocation.bearingTo(s.asLocation());
+
 				// Vibrate for 500 milliseconds
 
-				ConverseVibrator.vibrateForDirection(s.getInstruction(), this);
+				ConverseVibrator.vibrateForDirection(s.getInstruction(),
+						bearing, this);
 				if (!journey.removeFirstStep()) {
 					return;
 				}
@@ -415,6 +466,8 @@ public class NavigationAnimatorActivity extends Activity {
 	@Override
 	public void onResume() {
 		super.onResume(); // Always call the superclass method first
+
+		startAnimation();
 
 		if (!isReceiverRegistered) {
 

@@ -14,6 +14,14 @@
     <string name="title_activity_destination_reached">DestinationReachedActivity</string>
     <string name="user_arrived">You\'ve arrived!</string>
     <string name="btn_ok">OK</string>
-    <string name="walking">Walking...</string>
+    <string name="walking">Walking&#8230;</string>
+    <string name="btn_search">Search</string>
+    <string name="set_destination_title">Set Destination</string>
+    <string name="set_destination_text">Set the destination by long pressing anywhere on the map or by searching for an address. Let the vibrations guide you left or right. Your shoes will vibrate three times in unison once you\'ve reached your destination.</string>
+    <string name="bluetooth_err_title">Bluetooth Error</string>
+    <string name="bluetooth_err_msg">We can\'t connect to your shoes. make sure they\'re charged and within range of your Android phone.</string>
+    <string name="btn_settings">Settings</string>
+    <string name="title_activity_splash">SplashActivity</string>
+    <string name="loading_info">Once we\'ve connected to your shoes, choose a destination and feel the vibrations in your Converse to guide you left &amp; right until you reach your destination.</string>
 
 </resources>
