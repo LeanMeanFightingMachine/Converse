@@ -15,10 +15,8 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.content.res.Resources;
 import android.graphics.drawable.AnimationDrawable;
 import android.location.Location;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -190,7 +188,8 @@ public class NavigationAnimatorActivity extends Activity {
 									if (j != null) {
 										journey = j;
 										mHasJourneyData = true;
-										Log.v("DEBUG", j.toString());
+										Log.v(getClass().getSimpleName(),
+												j.toString());
 										checkIfAtLocation(mCurrentLocation);
 									} else {
 										Log.e(getClass().getSimpleName(),
@@ -211,6 +210,20 @@ public class NavigationAnimatorActivity extends Activity {
 
 		}
 
+	}
+
+	private void showErrorDialog(String title, String message) {
+		// 1. Instantiate an AlertDialog.Builder with its constructor
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+		// 2. Chain together various setter methods to set the dialog
+		// characteristics
+		builder.setMessage(message).setTitle(title);
+		
+		builder.setCancelable(false);
+
+		// 3. Get the AlertDialog from create()
+		AlertDialog dialog = builder.create();
 	}
 
 	@Override
