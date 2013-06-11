@@ -2,7 +2,7 @@
     android:id="@+id/RelativeLayout1"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    android:background="@drawable/walking"
+    android:background="@drawable/old_walking"
     android:orientation="vertical" >
 
     <ImageView

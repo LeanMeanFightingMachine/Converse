@@ -1,5 +1,6 @@
 package uk.lmfm.converse;
 
+import uk.lmfm.amarino.R;
 import uk.lmfm.converse.ConverseNavigationService.LocalBinder;
 import uk.lmfm.converse.util.ConverseVibrator;
 import uk.lmfm.converse.util.Journey;
